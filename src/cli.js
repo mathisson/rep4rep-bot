@@ -6,7 +6,7 @@ import { getApiToken, readSessions, writeSessions, SESSIONS_PATH } from './confi
 import { Rep4Rep } from './rep4rep.js';
 import { steamLogin, postProfileComment } from './steam.js';
 import { countdown, formatDuration, formatClock } from './countdown.js';
-import { runTasks } from './runner.js';
+import { runAccounts } from './accounts.js';
 import {
     getUsage, recordComment, setCooldown, clearCooldown, resetQuota,
     allAccounts, DEFAULT_LIMIT, QUOTA_PATH,
@@ -82,6 +82,11 @@ const runnerUi = {
         say('');
         note(`${why}. Next slot ${formatClock(until)}, in ${formatDuration(until - Date.now())}.`);
         if (!waiting) note('Re-run with --wait to sit it out and continue automatically.');
+    },
+    account({ name, profile }) {
+        if (!profile) return note(`Signing in as ${name}…`);
+        say('');
+        say(c.bold(profile.personaName) + c.dim('  ' + name));
     },
     exhausted(someOffered, personaName) {
         say('');
@@ -256,13 +261,12 @@ program
     .option('-l, --limit <n>', 'comments allowed per account per 24h', v => parseInt(v, 10), DEFAULT_LIMIT)
     .option('--min <seconds>', 'minimum pause between comments', v => parseFloat(v), 20)
     .option('--max <seconds>', 'maximum pause between comments', v => parseFloat(v), 45)
-    .option('-a, --account <name>', 'Steam account to post from')
+    .option('-a, --account <name>', 'only this Steam account (default: every signed-in one)')
     .option('-w, --wait', 'wait out cooldowns and keep going instead of exiting')
     .option('--ignore-quota', 'ignore the locally tracked 24h allowance')
     .option('-d, --dry-run', 'show what would be posted, post nothing')
     .option('-y, --yes', 'skip the confirmation prompt')
     .action(async o => {
-        let session = null;
         try {
             const limit = Number.isFinite(o.limit) && o.limit > 0 ? o.limit : DEFAULT_LIMIT;
             const count = Number.isFinite(o.count) && o.count > 0 ? o.count : limit;
@@ -271,42 +275,31 @@ program
             const maxDelay = Math.max(minDelay, o.max);
 
             const r4r = api(program.opts());
+            const sessions = readSessions();
+            const names = (o.account ? [o.account] : Object.keys(sessions)).filter(n => sessions[n]);
 
-            // Dry runs never need Steam, so only log in when we are really posting.
-            let steamId64 = null;
-            if (!o.dryRun) {
-                session = await steamLogin({ account: o.account });
-                steamId64 = session.steamId64;
-                ok(`Steam: ${c.bold(session.accountName)} (${steamId64})`);
+            if (!names.length) {
+                throw new Error(o.account
+                    ? `No saved sign-in for "${o.account}".`
+                    : 'No Steam accounts are signed in. Run: npm start -- login');
             }
 
-            const profiles = await r4r.getSteamProfiles();
-            const profile = steamId64
-                ? profiles.find(p => String(p.steamId) === steamId64)
-                : pickProfile(profiles, o.account);
-
-            if (!profile) {
-                throw new Error(
-                    `The Steam account you logged in as (${steamId64}) is not linked to your rep4rep ` +
-                    `account. Linked: ${profiles.map(p => p.steamId).join(', ') || 'none'}`
-                );
-            }
-
-            const tracking = Boolean(steamId64) && !o.ignoreQuota;
-            if (tracking) {
-                const u = getUsage(steamId64, limit);
-                note(`${u.used}/${limit} comments used in the last 24h, ${u.remaining} left.`);
-            }
-
+            // A dry run needs no Steam session, so resolve profiles from the
+            // cached SteamIDs instead of signing in.
             if (o.dryRun) {
-                const available = await r4r.getTasks(profile.id);
-                if (!available.length) return note(`No tasks available for ${profile.personaName} right now.`);
+                const profiles = await r4r.getSteamProfiles();
+                for (const name of names) {
+                    const profile = profiles.find(p => String(p.steamId) === String(sessions[name].steamId));
+                    say('');
+                    if (!profile) { note(`${name} is not linked to your rep4rep account.`); continue; }
+
+                    const available = await r4r.getTasks(profile.id);
+                    say(c.bold(profile.personaName) + c.dim('  ' + name));
+                    if (!available.length) { note('No tasks available right now.'); continue; }
+                    for (const t of available) say(describeTask(t));
+                }
                 say('');
-                say(c.dim(`rep4rep is offering ${available.length} task(s) right now:`));
-                for (const t of available) say(describeTask(t));
-                say('');
-                note(`A real run would do ${batchSize} of these, then re-fetch for the next set, ` +
-                     `up to ${count} comment(s) total.`);
+                note(`A real run would do ${batchSize} at a time, re-fetching, up to ${count} per account.`);
                 note('Dry run -- nothing was posted.');
                 return;
             }
@@ -315,18 +308,17 @@ program
                 const { go } = await prompts({
                     type: 'confirm',
                     name: 'go',
-                    message: `Post up to ${count} comment(s) from ${profile.personaName}, ${batchSize} per fetch?`,
+                    message: `Post up to ${count} comment(s) from ${names.length} account(s): ${names.join(', ')}?`,
                     initial: true,
                 });
                 if (!go) return note('Cancelled.');
             }
 
-            const result = await runTasks({
+            const total = await runAccounts({
+                accounts: names,
+                login: name => steamLogin({ account: name }),
+                post: (session, target, text) => postProfileComment(session.community, target, text),
                 r4r,
-                post: (target, text) => postProfileComment(session.community, target, text),
-                profile,
-                steamId64,
-                tracking,
                 quota: { getUsage, recordComment, setCooldown, clearCooldown },
                 ui: runnerUi,
                 countdown,
@@ -338,29 +330,29 @@ program
                 minDelay,
                 maxDelay,
                 wait: o.wait,
+                tracking: !o.ignoreQuota,
             });
 
-            const { done, failed, fetches } = result;
             say('');
             const after = await r4r.getUser().catch(() => null);
             const points = after
                 ? `  ${c.green(after.points + ' points')}${after.pendingPoints ? c.dim(` (${after.pendingPoints} pending)`) : ''}`
                 : '';
-            say(`${c.bold(`${done} completed`)}, ${failed} failed, over ${fetches} fetch(es).${points}`);
+            say(`${c.bold(`${total.done} completed`)}, ${total.failed} failed, `
+                + `over ${total.fetches} fetch(es) across ${total.accounts} account(s).${points}`);
 
-            if (tracking) {
-                const u = getUsage(steamId64, limit);
-                note(`${u.used}/${limit} used in the last 24h` +
-                    (u.remaining === 0 && u.resetAt
+            for (const name of names) {
+                const steamId = String(sessions[name].steamId);
+                const u = getUsage(steamId, limit);
+                note(`${name}: ${u.used}/${limit} used in the last 24h`
+                    + (u.remaining === 0 && u.resetAt
                         ? `, next slot in ${formatDuration(u.resetAt - Date.now())}`
                         : `, ${u.remaining} left`));
             }
 
-            if (failed) process.exitCode = 1;
+            if (total.failed) process.exitCode = 1;
         } catch (err) {
             fail(err.message);
-        } finally {
-            session?.logOff();
         }
     });
 

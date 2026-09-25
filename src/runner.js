@@ -2,6 +2,21 @@ import { isRateLimit } from './steam.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 
+/** Thrown by an injected sleep/countdown when the caller cancels a run. */
+export class Cancelled extends Error {
+    constructor() {
+        super('Cancelled');
+        this.name = 'Cancelled';
+    }
+}
+
+/**
+ * Give up after this many posts fail back to back. Without it a run whose every
+ * post fails -- a dead session, a locked account -- keeps fetching fresh tasks
+ * and failing them forever, because `posted` never advances.
+ */
+export const MAX_CONSECUTIVE_FAILURES = 5;
+
 /** Stops --wait spinning forever if Steam keeps refusing. */
 export const MAX_WAITS = 24;
 /** How many times to re-poll when rep4rep is still serving tasks we just did. */
@@ -46,6 +61,7 @@ export async function runTasks({
     let waits = 0;
     let staleRefetches = 0;
     let fetches = 0;
+    let consecutiveFailures = 0;
     let stoppedBecause = 'complete';
 
     while (posted < count) {
@@ -115,10 +131,14 @@ export async function runTasks({
             await post(task.targetSteamProfileId, task.requiredCommentText);
             if (tracking) quota.recordComment(steamId64);
             posted++;
+            consecutiveFailures = 0;
             seenTasks.add(task.taskId);
             seenTargets.add(String(task.targetSteamProfileId));
             pending.shift();
         } catch (err) {
+            // A cancel must end the run, not be mistaken for a refused comment.
+            if (err instanceof Cancelled) throw err;
+
             if (isRateLimit(err)) {
                 const u = tracking ? quota.getUsage(steamId64, limit) : { resetAt: null };
                 const until = u.resetAt && u.resetAt > now() ? u.resetAt : now() + HOUR_MS;
@@ -140,9 +160,16 @@ export async function runTasks({
             // A real refusal (private profile, comments closed). Drop it and move on.
             ui.bad(`${label} ${err.message}`);
             failed++;
+            consecutiveFailures++;
             seenTasks.add(task.taskId);
             seenTargets.add(String(task.targetSteamProfileId));
             pending.shift();
+
+            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                ui.bad(`Giving up after ${consecutiveFailures} failures in a row.`);
+                stoppedBecause = 'too-many-failures';
+                break;
+            }
             continue;
         }
 

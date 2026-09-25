@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { runTasks } from '../src/runner.js';
+import { runTasks, Cancelled, MAX_CONSECUTIVE_FAILURES } from '../src/runner.js';
 
 let passed = 0;
 const tests = [];
@@ -271,6 +271,37 @@ test('untracked runs ignore the ledger entirely', async () => {
     }));
     assert.equal(r.posted, 6, '--ignore-quota really does ignore it');
     assert.equal(quota.used, 0, 'and records nothing');
+});
+
+
+test('a cancel during a post ends the run instead of counting as a refusal', async () => {
+    const api = pagedApi(3);
+    await assert.rejects(
+        runTasks(base({ r4r: api, quota: fakeQuota(10), post: async () => { throw new Cancelled(); } })),
+        e => e instanceof Cancelled
+    );
+});
+
+test('it gives up when every post fails instead of fetching forever', async () => {
+    // pagedApi serves endless fresh targets, so without a cap this never returns.
+    const api = pagedApi(3);
+    const r = await runTasks(base({
+        r4r: api, quota: fakeQuota(10), count: 10,
+        post: async () => { throw new Error('The settings on this account do not allow you to add comments'); },
+    }));
+    assert.equal(r.stoppedBecause, 'too-many-failures');
+    assert.equal(r.failed, MAX_CONSECUTIVE_FAILURES);
+    assert.equal(r.posted, 0);
+});
+
+test('a success resets the consecutive-failure count', async () => {
+    const api = pagedApi(3);
+    let n = 0;
+    const r = await runTasks(base({
+        r4r: api, quota: fakeQuota(10), count: 4,
+        post: async () => { n++; if (n % 2) throw new Error('comments disabled'); },
+    }));
+    assert.equal(r.posted, 4, 'alternating failures never reach the cap');
 });
 
 /* ---------------------------------------------------------------- run */

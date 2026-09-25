@@ -5,13 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { getApiToken, saveApiToken, hasApiToken, readSessions, writeSessions } from '../src/config.js';
 import { Rep4Rep } from '../src/rep4rep.js';
 import { steamLogin, postProfileComment } from '../src/steam.js';
-import { runTasks } from '../src/runner.js';
+import { runAccounts, Cancelled } from '../src/accounts.js';
 import { getUsage, recordComment, setCooldown, clearCooldown, allAccounts } from '../src/quota.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-
-/** Raised by the injected sleep/countdown when the user hits Stop. */
-class Cancelled extends Error {}
 
 let win = null;
 let current = null; // { cancel } while a run is in flight
@@ -53,40 +50,35 @@ const cancellableSleep = isCancelled => ms => new Promise((resolve, reject) => {
 });
 
 /* ------------------------------------------------------------------ */
-/* the run, driven by the same runner the CLI uses                     */
+/* the run, shared with the CLI                                        */
 /* ------------------------------------------------------------------ */
 
-/** One Steam account, start to finish. Returns its tallies. */
-async function runAccount(accountName, opts, sleep, isCancelled) {
-    const r4r = new Rep4Rep(getApiToken());
-    let session = null;
+async function startRun(opts) {
+    let cancelled = false;
+    current = { cancel: () => { cancelled = true; } };
+    send({ type: 'status', running: true });
+
+    const sleep = cancellableSleep(() => cancelled);
 
     try {
-        send({ type: 'account', name: accountName });
-        log('note', `Signing in as ${accountName}…`);
-        session = await steamLogin({ account: accountName });
+        const sessions = readSessions();
+        const names = (opts.accounts?.length ? opts.accounts : Object.keys(sessions))
+            .filter(n => sessions[n]);
 
-        const profiles = await r4r.getSteamProfiles();
-        const profile = profiles.find(p => String(p.steamId) === session.steamId64);
-        if (!profile) {
-            log('bad', `${accountName} (${session.steamId64}) is not linked to your rep4rep account.`);
-            return { done: 0, failed: 1, fetches: 0 };
-        }
-
-        send({ type: 'account', name: accountName, persona: profile.personaName, steamId: profile.steamId });
-
-        return await runTasks({
-            r4r,
-            post: (target, text) => postProfileComment(session.community, target, text),
-            profile,
-            steamId64: session.steamId64,
-            tracking: !opts.ignoreQuota,
+        const total = await runAccounts({
+            accounts: names,
+            login: name => steamLogin({ account: name }),
+            post: (session, target, text) => postProfileComment(session.community, target, text),
+            r4r: new Rep4Rep(getApiToken()),
             quota: { getUsage, recordComment, setCooldown, clearCooldown },
             ui: {
                 say: m => log('plain', m),
                 ok: m => log('ok', m),
                 bad: m => log('bad', m),
                 note: m => log('note', m),
+                account: ({ name, profile }) => profile
+                    ? send({ type: 'account', name, persona: profile.personaName, steamId: profile.steamId })
+                    : log('note', `Signing in as ${name}…`),
                 fetched: (n, offered, taken) => send({
                     type: 'fetch',
                     n,
@@ -115,52 +107,14 @@ async function runAccount(accountName, opts, sleep, isCancelled) {
             minDelay: opts.min,
             maxDelay: opts.max,
             wait: opts.wait,
+            tracking: !opts.ignoreQuota,
         });
-    } catch (err) {
-        if (err instanceof Cancelled) throw err;          // stop the whole run
-        log('bad', `${accountName}: ${err.message}`);
-        return { done: 0, failed: 1, fetches: 0 };
-    } finally {
-        session?.logOff();
-        if (isCancelled()) { /* nothing more to clean up */ }
-    }
-}
 
-async function startRun(opts) {
-    let cancelled = false;
-    current = { cancel: () => { cancelled = true; } };
-    send({ type: 'status', running: true });
-
-    const sleep = cancellableSleep(() => cancelled);
-    const total = { done: 0, failed: 0, fetches: 0 };
-
-    try {
-        const sessions = readSessions();
-        const names = (opts.accounts?.length ? opts.accounts : Object.keys(sessions))
-            .filter(n => sessions[n]);
-
-        if (!names.length) throw new Error('No Steam accounts are signed in.');
-
-        for (const [i, name] of names.entries()) {
-            if (cancelled) break;
-
-            const r = await runAccount(name, opts, sleep, () => cancelled);
-            total.done += r.done;
-            total.failed += r.failed;
-            total.fetches += r.fetches;
-
-            // Space out the switch so Steam does not see back-to-back logins.
-            if (i < names.length - 1 && !cancelled) {
-                log('note', 'Switching account…');
-                await sleep(5000);
-            }
-        }
-
-        send({ type: 'result', ...total, accounts: names.length });
+        send({ type: 'result', ...total });
     } catch (err) {
         if (err instanceof Cancelled) log('note', 'Stopped.');
         else log('bad', err.message);
-        send({ type: 'result', ...total });
+        send({ type: 'result', done: 0, failed: 0, fetches: 0 });
     } finally {
         current = null;
         send({ type: 'status', running: false });
