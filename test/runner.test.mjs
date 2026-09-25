@@ -304,6 +304,29 @@ test('a success resets the consecutive-failure count', async () => {
     assert.equal(r.posted, 4, 'alternating failures never reach the cap');
 });
 
+
+test('an unrecognised refusal is reported so the pattern can be added', async () => {
+    const seen = [];
+    await runTasks(base({
+        r4r: pagedApi(3), quota: fakeQuota(10), count: 2,
+        onRefusal: (err, task) => seen.push([err.message, task.targetSteamProfileName]),
+        post: async () => { throw new Error('Some brand new Steam message'); },
+    }));
+    assert.equal(seen.length, MAX_CONSECUTIVE_FAILURES, 'every refusal is recorded');
+    assert.equal(seen[0][0], 'Some brand new Steam message');
+    assert.ok(seen[0][1], 'the target is recorded too');
+});
+
+test('a throttle is not logged as a refusal', async () => {
+    const seen = [];
+    await runTasks(base({
+        r4r: pagedApi(3), quota: fakeQuota(10), count: 2,
+        onRefusal: err => seen.push(err.message),
+        post: async () => { throw new Error('HTTP error 429'); },
+    }));
+    assert.equal(seen.length, 0, 'throttles go to the cooldown path, not the log');
+});
+
 /* ---------------------------------------------------------------- run */
 
 for (const [name, fn] of tests) {

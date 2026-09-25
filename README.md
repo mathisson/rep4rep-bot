@@ -125,6 +125,29 @@ through leaves the remaining tasks untouched and available on the next run.
 profile, comments disabled) it is dropped, never retried, and the run fetches another
 target to make up for it.
 
+## When comments are refused
+
+Steam's throttling messages are matched against a short list of patterns. Anything outside
+it is treated as a permanent refusal and the task is dropped, so a throttle worded in a way
+the list does not cover silently burns a task.
+
+Every unrecognised refusal is appended to `~/.rep4rep-cli/steam-errors.log`, with the
+timestamp and the target it came from:
+
+```bash
+npm start -- errors
+```
+
+```
+3 refusal(s), 2 distinct
+
+     2  The settings on this account do not allow you to add comments
+     1  Some brand new Steam message
+```
+
+The first is a genuine refusal. A message that repeats and is not one of those is the
+signal that a throttle pattern is missing from the list in `src/steam.js`.
+
 ## Tests
 
 ```bash

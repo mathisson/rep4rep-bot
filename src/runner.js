@@ -50,6 +50,7 @@ export async function runTasks({
     minDelay,
     maxDelay,
     wait = false,
+    onRefusal = () => {},   // injected so tests stay off the filesystem
 }) {
     let pending = [];
     const seenTasks = new Set();
@@ -157,7 +158,10 @@ export async function runTasks({
                 continue; // same task is still at the head of `pending`
             }
 
-            // A real refusal (private profile, comments closed). Drop it and move on.
+            // Treated as a real refusal (private profile, comments closed) and
+            // dropped. Recorded because the throttle patterns are guesses -- a
+            // throttle landing here silently burns the task.
+            onRefusal(err, task);
             ui.bad(`${label} ${err.message}`);
             failed++;
             consecutiveFailures++;

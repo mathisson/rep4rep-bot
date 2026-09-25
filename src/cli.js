@@ -2,7 +2,7 @@
 import { Command } from 'commander';
 import prompts from 'prompts';
 
-import { getApiToken, readSessions, writeSessions, SESSIONS_PATH } from './config.js';
+import { getApiToken, readSessions, writeSessions, SESSIONS_PATH, logSteamError, STEAM_ERROR_LOG } from './config.js';
 import { Rep4Rep } from './rep4rep.js';
 import { steamLogin, postProfileComment } from './steam.js';
 import { countdown, formatDuration, formatClock } from './countdown.js';
@@ -254,6 +254,37 @@ program
     });
 
 program
+    .command('errors')
+    .description('Show Steam refusals that were not recognised as throttling')
+    .option('-n, --lines <n>', 'how many to show', v => parseInt(v, 10), 25)
+    .action(async o => {
+        const { readFileSync } = await import('node:fs');
+        let raw;
+        try {
+            raw = readFileSync(STEAM_ERROR_LOG, 'utf8');
+        } catch (err) {
+            return note(err.code === 'ENOENT' ? 'No refusals recorded yet.' : err.message);
+        }
+
+        const rows = raw.trim().split('\n').filter(Boolean);
+        if (!rows.length) return note('No refusals recorded yet.');
+
+        // Group identical messages: repeats are what point at a missing pattern.
+        const tally = new Map();
+        for (const row of rows) {
+            const message = row.split('\t').slice(2).join('\t');
+            tally.set(message, (tally.get(message) || 0) + 1);
+        }
+
+        say(c.dim(STEAM_ERROR_LOG));
+        say(c.dim(`${rows.length} refusal(s), ${tally.size} distinct`));
+        say('');
+        for (const [message, n] of [...tally].sort((a, b) => b[1] - a[1]).slice(0, o.lines)) {
+            say(`  ${c.bold(String(n).padStart(4))}  ${message}`);
+        }
+    });
+
+program
     .command('run')
     .description('Work through comment tasks, re-fetching from rep4rep as each batch is finished')
     .option('-n, --count <n>', 'total comments to post this run', v => parseInt(v, 10), DEFAULT_LIMIT)
@@ -331,6 +362,7 @@ program
                 maxDelay,
                 wait: o.wait,
                 tracking: !o.ignoreQuota,
+                onRefusal: (err, task) => logSteamError(err.message, task.targetSteamProfileId),
             });
 
             say('');

@@ -34,6 +34,25 @@ export function writeSessions(sessions) {
     fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), { mode: 0o600 });
 }
 
+export const STEAM_ERROR_LOG = path.join(CONFIG_DIR, 'steam-errors.log');
+
+/**
+ * Record a Steam refusal that isRateLimit did not recognise.
+ *
+ * Those five patterns are guesses. Anything outside them is treated as a
+ * permanent refusal and the task is dropped, so the log is how we find out
+ * which patterns are actually missing. Best effort -- never fails a run.
+ */
+export function logSteamError(message, context = '') {
+    try {
+        ensureConfigDir();
+        const line = `${new Date().toISOString()}\t${context}\t${String(message).replace(/\s+/g, ' ')}\n`;
+        fs.appendFileSync(STEAM_ERROR_LOG, line, { mode: 0o600 });
+    } catch {
+        // Logging must never be the reason a run stops.
+    }
+}
+
 /** Persist the API token to the config dir, where a packaged app can find it. */
 export function saveApiToken(token) {
     const clean = String(token || '').trim();

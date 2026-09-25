@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { getApiToken, saveApiToken, hasApiToken, readSessions, writeSessions } from '../src/config.js';
+import { getApiToken, saveApiToken, hasApiToken, readSessions, writeSessions, logSteamError } from '../src/config.js';
 import { Rep4Rep } from '../src/rep4rep.js';
 import { steamLogin, postProfileComment } from '../src/steam.js';
 import { runAccounts, Cancelled } from '../src/accounts.js';
@@ -108,6 +108,7 @@ async function startRun(opts) {
             maxDelay: opts.max,
             wait: opts.wait,
             tracking: !opts.ignoreQuota,
+            onRefusal: (err, task) => logSteamError(err.message, task.targetSteamProfileId),
         });
 
         send({ type: 'result', ...total });

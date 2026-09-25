@@ -33,6 +33,7 @@ export async function runAccounts({
     maxDelay,
     wait = false,
     tracking = true,
+    onRefusal,
     switchDelayMs = SWITCH_DELAY_MS,
 }) {
     if (!accounts.length) throw new Error('No Steam accounts are signed in.');
@@ -73,6 +74,7 @@ export async function runAccounts({
                     minDelay,
                     maxDelay,
                     wait,
+                    onRefusal,
                 });
 
                 total.done += r.done;
