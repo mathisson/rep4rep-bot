@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { getApiToken, readSessions } from '../src/config.js';
+import { getApiToken, saveApiToken, hasApiToken, readSessions } from '../src/config.js';
 import { Rep4Rep } from '../src/rep4rep.js';
 import { steamLogin, postProfileComment } from '../src/steam.js';
 import { runTasks } from '../src/runner.js';
@@ -18,6 +18,30 @@ let current = null; // { cancel } while a run is in flight
 
 const send = payload => win?.webContents.send('event', { ...payload, at: Date.now() });
 const log = (kind, text) => send({ type: 'log', kind, text });
+
+/* ------------------------------------------------------------------ */
+/* asking the window a question and waiting for the answer             */
+/* ------------------------------------------------------------------ */
+
+const pending = new Map();
+let askSeq = 0;
+
+/** Matches the `ask` contract steamLogin expects, but routed through the UI. */
+function askWindow({ type, message, initial }) {
+    const id = ++askSeq;
+    send({ type: 'ask', id, kind: type, message, initial });
+    return new Promise(resolve => {
+        pending.set(id, resolve);
+        // A closed window must not leave steamLogin hanging until its timeout.
+        win?.once('closed', () => { pending.delete(id); resolve(null); });
+    });
+}
+
+ipcMain.handle('answer', (_e, { id, value }) => {
+    const resolve = pending.get(id);
+    if (resolve) { pending.delete(id); resolve(value); }
+    return true;
+});
 
 /** sleep that rejects the moment the run is cancelled, so Stop is immediate. */
 const cancellableSleep = isCancelled => ms => new Promise((resolve, reject) => {
@@ -108,10 +132,33 @@ async function startRun(opts) {
 /* ipc                                                                 */
 /* ------------------------------------------------------------------ */
 
+ipcMain.handle('saveToken', async (_e, token) => {
+    try {
+        saveApiToken(token);
+        // Prove it works before letting the user past the setup step.
+        const user = await new Rep4Rep(getApiToken()).getUser();
+        return { ok: true, username: user.username, points: user.points };
+    } catch (err) {
+        return { error: err.message };
+    }
+});
+
+ipcMain.handle('steamLogin', async (_e, account) => {
+    try {
+        const session = await steamLogin({ account, interactive: true, ask: askWindow });
+        const name = session.accountName;
+        session.logOff();
+        return { ok: true, accountName: name, steamId: session.steamId64 };
+    } catch (err) {
+        return { error: err.message };
+    }
+});
+
 ipcMain.handle('state', async () => {
     const sessions = readSessions();
     const out = {
         accounts: Object.entries(sessions).map(([name, s]) => ({ name, steamId: s.steamId })),
+        needs: { token: !hasApiToken(), steam: Object.keys(sessions).length === 0 },
         running: Boolean(current),
         quota: allAccounts(),
         profiles: [],

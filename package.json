@@ -1,6 +1,6 @@
 {
   "name": "rep4rep-cli",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "CLI that completes Rep4Rep comment tasks via the public API and the Steam client protocol.",
   "type": "module",
@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node src/cli.js",
     "test": "node test/run.mjs",
-    "app": "electron ."
+    "app": "electron .",
+    "build": "node build.mjs"
   },
   "engines": {
     "node": ">=18"
@@ -24,6 +25,7 @@
     "steamid": "^2.1.0"
   },
   "devDependencies": {
+    "@electron/packager": "^20.3.0",
     "electron": "^44.4.5"
   },
   "main": "electron/main.js"

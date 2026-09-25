@@ -186,6 +186,18 @@ still applies; you just lose the early warning.
 
 ## Desktop app
 
+Double-click **`build.cmd`**. It installs dependencies, packages the app, and tells you
+where the `.exe` landed:
+
+```
+dist\Rep4Rep-win32-x64\Rep4Rep.exe
+```
+
+Make a shortcut to that and you are done. On first launch the app asks for your rep4rep API
+token and your Steam sign-in, then remembers both — no terminal needed.
+
+To run it from source instead:
+
 ```bash
 npm run app
 ```
@@ -199,6 +211,9 @@ second copy of the logic. The renderer is sandboxed — `contextIsolation` on,
 `nodeIntegration` off — and reaches the main process through exactly four calls exposed in
 `electron/preload.cjs`.
 
-Steam login stays in the terminal (`npm start -- login`); the app uses the cached refresh
-token and never handles a password. The CLI remains fully usable on its own — the app is an
-extra front end, not a replacement.
+Your Steam password is sent straight to Steam and never written to disk — only the refresh
+token Steam returns is saved, in `~/.rep4rep-cli/sessions.json`. The API token goes to
+`~/.rep4rep-cli/.env`, which is also where a packaged `.exe` looks for it.
+
+The CLI remains fully usable on its own — the app is an extra front end, not a replacement,
+and `npm start -- login` still works if you prefer the terminal.

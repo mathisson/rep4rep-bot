@@ -241,6 +241,36 @@
   .batch .who { color: var(--ink); font-weight: 600; flex: none; }
   .batch .q { color: var(--accent); font-size: 12.5px; user-select: text; }
 
+  /* ---------- first-run setup ---------- */
+
+  #setup {
+    display: none; position: fixed; inset: 44px 0 0; z-index: 20;
+    background: var(--bg); place-items: center; padding: 24px; overflow-y: auto;
+  }
+  #setup.on { display: grid; }
+  #setup .box { width: 100%; max-width: 380px; }
+  #setup .steps { display: flex; gap: 6px; margin-bottom: 22px; }
+  #setup .steps i { flex: 1; height: 3px; border-radius: 3px; background: var(--edge); }
+  #setup .steps i.done { background: var(--ok); }
+  #setup .steps i.now { background: var(--accent); }
+  #setup h2 {
+    font-size: 19px; font-weight: 600; color: #fff; margin-bottom: 7px;
+    letter-spacing: -.01em; text-transform: none;
+  }
+  #setup p { color: var(--ink-dim); font-size: 12.5px; line-height: 1.65; margin-bottom: 18px; }
+  #setup p a { color: var(--accent); }
+  #setup input {
+    width: 100%; padding: 10px 12px; margin-bottom: 10px;
+    background: var(--surface-2); color: var(--ink);
+    border: 1px solid var(--edge); border-radius: 8px; font: inherit; font-size: 13px;
+    user-select: text;
+  }
+  #setup input:focus { outline: none; border-color: var(--accent-dim); }
+  #setup .err { color: var(--bad); font-size: 12.5px; margin-bottom: 10px; min-height: 17px; }
+  #setup .hint { color: var(--ink-faint); font-size: 11.5px; margin-top: 12px; line-height: 1.6; }
+  .step { display: none; }
+  .step.on { display: block; }
+
   #empty { display: grid; place-items: center; height: 100%; text-align: center; }
   #empty .big { font-size: 15px; color: var(--ink-dim); margin-bottom: 6px; }
   #empty .small { font-size: 12.5px; color: var(--ink-faint); max-width: 330px; line-height: 1.6; }
@@ -260,6 +290,47 @@
   <div class="acct">
     <span class="name" id="who">—</span>
     <span class="pts" id="pts" style="display:none"></span>
+  </div>
+</div>
+
+<div id="setup">
+  <div class="box">
+    <div class="steps"><i id="s1"></i><i id="s2"></i></div>
+
+    <div class="step" id="stepToken">
+      <h2>Connect your rep4rep account</h2>
+      <p>Paste your API token. Generate one on the
+         <a href="https://rep4rep.com/user/settings/" target="_blank">rep4rep settings page</a>.</p>
+      <input type="password" id="tokenIn" placeholder="API token" autocomplete="off" spellcheck="false">
+      <div class="err" id="tokenErr"></div>
+      <button id="tokenGo">Continue</button>
+      <div class="hint">Stored locally in your user folder. It never leaves this machine.</div>
+    </div>
+
+    <div class="step" id="stepSteam">
+      <h2>Sign in to Steam</h2>
+      <p>Needed once, to post comments on your behalf. Your password is sent straight to Steam
+         and never written to disk — only the sign-in token Steam returns is saved.</p>
+      <input type="text" id="steamUser" placeholder="Steam username" autocomplete="off" spellcheck="false">
+      <input type="password" id="steamPass" placeholder="Steam password" autocomplete="off">
+      <div class="err" id="steamErr"></div>
+      <button id="steamGo">Sign in</button>
+      <div class="hint">A Steam Guard code will be asked for next if your account uses one.</div>
+    </div>
+
+    <div class="step" id="stepCode">
+      <h2 id="codeTitle">Steam Guard</h2>
+      <p id="codeMsg"></p>
+      <input type="text" id="codeIn" placeholder="Code" autocomplete="off" spellcheck="false"
+             maxlength="8" style="letter-spacing:.3em; text-transform:uppercase">
+      <div class="err" id="codeErr"></div>
+      <button id="codeGo">Submit</button>
+    </div>
+
+    <div class="step" id="stepBusy">
+      <h2 id="busyTitle">Signing in…</h2>
+      <p id="busyMsg">Talking to Steam. This can take a few seconds.</p>
+    </div>
   </div>
 </div>
 
@@ -401,24 +472,128 @@ async function refresh() {
       + ring(u.used, u.limit) + '</div>';
   }).join('');
 
-  const hint = $('emptyHint');
-  if (!s.accounts.length) {
-    hint.innerHTML = 'No saved Steam sign-in. Run <code>npm start -- login</code> in a terminal once, then reopen.';
+  if (s.needs && (s.needs.token || s.needs.steam)) {
+    openSetup(s.needs);
     $('go').disabled = true;
-  } else if (s.error) {
-    hint.textContent = s.error;
-    $('go').disabled = true;
-  } else if (!running) {
-    $('go').disabled = false;
+  } else {
+    closeSetup();
+    const hint = $('emptyHint');
+    if (s.error) {
+      hint.textContent = s.error;
+      $('go').disabled = true;
+    } else {
+      hint.textContent = 'Pick an account and start a run.';
+      if (!running) $('go').disabled = false;
+    }
   }
 
   setRunning(s.running);
 }
 
+/* ---------- first-run setup ---------- */
+
+let pendingAsk = null;   // an id the main process is waiting on
+
+function showStep(id) {
+  for (const el of document.querySelectorAll('.step')) el.classList.toggle('on', el.id === id);
+  const first = document.querySelector('#' + id + ' input');
+  if (first) setTimeout(() => first.focus(), 40);
+}
+
+function markSteps(n) {
+  $('s1').className = n > 1 ? 'done' : 'now';
+  $('s2').className = n > 1 ? 'now' : '';
+}
+
+function openSetup(needs) {
+  // Already open means the user is part-way through; the background refresh
+  // must not yank them back to the first step.
+  if ($('setup').classList.contains('on')) return;
+
+  $('setup').classList.add('on');
+  if (needs.token) { markSteps(1); showStep('stepToken'); }
+  else { markSteps(2); showStep('stepSteam'); }
+}
+
+const closeSetup = () => $('setup').classList.remove('on');
+
+$('tokenGo').onclick = async () => {
+  const v = $('tokenIn').value.trim();
+  $('tokenErr').textContent = '';
+  if (!v) { $('tokenErr').textContent = 'Paste a token first.'; return; }
+
+  $('tokenGo').disabled = true;
+  $('tokenGo').textContent = 'Checking…';
+  const r = await window.api.saveToken(v);
+  $('tokenGo').disabled = false;
+  $('tokenGo').textContent = 'Continue';
+
+  if (r.error) { $('tokenErr').textContent = r.error; return; }
+
+  $('tokenIn').value = '';
+  const s = await window.api.state();
+  if (s.needs.steam) { markSteps(2); showStep('stepSteam'); }
+  else { closeSetup(); refresh(); }
+};
+
+$('steamGo').onclick = async () => {
+  const user = $('steamUser').value.trim();
+  const pass = $('steamPass').value;
+  $('steamErr').textContent = '';
+  if (!user || !pass) { $('steamErr').textContent = 'Both fields are needed.'; return; }
+
+  // steamLogin asks for the username and password through the same ask channel
+  // the Guard code uses, so queue these two answers for it to collect.
+  queued = [user, pass];
+  $('busyTitle').textContent = 'Signing in…';
+  showStep('stepBusy');
+
+  const r = await window.api.steamLogin();
+  $('steamPass').value = '';
+  queued = [];
+
+  if (r.error) {
+    $('steamErr').textContent = r.error;
+    showStep('stepSteam');
+    return;
+  }
+  closeSetup();
+  refresh();
+};
+
+let queued = [];
+
+$('codeGo').onclick = () => {
+  const v = $('codeIn').value.trim();
+  if (!v || pendingAsk === null) return;
+  window.api.answer(pendingAsk, v);
+  pendingAsk = null;
+  $('codeIn').value = '';
+  $('busyTitle').textContent = 'Checking code…';
+  showStep('stepBusy');
+};
+
+for (const id of ['tokenIn', 'steamPass', 'codeIn']) {
+  $(id).addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    ({ tokenIn: $('tokenGo'), steamPass: $('steamGo'), codeIn: $('codeGo') })[id].click();
+  });
+}
+
+/** Main process is asking a question mid-login. */
+function handleAsk(ev) {
+  if (queued.length) return window.api.answer(ev.id, queued.shift());
+  pendingAsk = ev.id;
+  $('codeMsg').textContent = ev.message;
+  showStep('stepCode');
+}
+
 /* ---------- events ---------- */
 
 window.api.onEvent(ev => {
-  if (ev.type === 'log') {
+  if (ev.type === 'ask') {
+    handleAsk(ev);
+  } else if (ev.type === 'log') {
     line(ev.kind, esc(ev.text));
   } else if (ev.type === 'fetch') {
     bump('fetches', ev.n);

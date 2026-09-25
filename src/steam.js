@@ -7,6 +7,12 @@ import { readSessions, writeSessions } from './config.js';
 
 const LOGIN_TIMEOUT_MS = 90_000;
 
+/** Default question-asker: a terminal prompt. The Electron app passes its own. */
+const terminalAsk = async ({ type, message, initial }) => {
+    const { value } = await prompts({ type, name: 'value', message, initial });
+    return value;
+};
+
 /**
  * Log into Steam and return a web-authenticated SteamCommunity handle.
  *
@@ -14,7 +20,7 @@ const LOGIN_TIMEOUT_MS = 90_000;
  * `interactive: true`, prompts for credentials, and caches only the refresh
  * token Steam hands back -- the password is never written to disk.
  */
-export async function steamLogin({ account, interactive = false } = {}) {
+export async function steamLogin({ account, interactive = false, ask = terminalAsk } = {}) {
     const sessions = readSessions();
     const names = Object.keys(sessions);
 
@@ -34,17 +40,12 @@ export async function steamLogin({ account, interactive = false } = {}) {
             throw new Error(`${detail} Run: npm start -- login`);
         }
 
-        const answers = await prompts(
-            [
-                { type: 'text', name: 'accountName', message: 'Steam username', initial: accountName || '' },
-                { type: 'password', name: 'password', message: 'Steam password' },
-            ],
-            { onCancel: () => { throw new Error('Login cancelled.'); } }
-        );
+        const name = await ask({ type: 'text', message: 'Steam username', initial: accountName || '' });
+        const password = await ask({ type: 'password', message: 'Steam password' });
 
-        if (!answers.accountName || !answers.password) throw new Error('Login cancelled.');
-        accountName = answers.accountName.trim();
-        logOnOptions = { accountName, password: answers.password };
+        if (!name || !password) throw new Error('Login cancelled.');
+        accountName = name.trim();
+        logOnOptions = { accountName, password };
     }
 
     // autoRelogin matters for --wait runs, which idle for hours between comments.
@@ -64,11 +65,10 @@ export async function steamLogin({ account, interactive = false } = {}) {
             return; // the 'ready' promise below times out with a clear message
         }
         const where = domain ? `emailed to ${domain}` : 'from your Steam mobile app';
-        prompts({
+        ask({
             type: 'text',
-            name: 'code',
             message: `Steam Guard code ${where}${lastCodeWrong ? ' (previous code was wrong)' : ''}`,
-        }).then(({ code }) => callback((code || '').trim()));
+        }).then(code => callback(String(code || '').trim()));
     });
 
     const ready = new Promise((resolve, reject) => {
