@@ -3,32 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src https: data:;">
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' https: data:;">
 <title>Rep4Rep</title>
 <style>
   :root {
-    --bg:        #0d1117;
-    --surface:   #141b24;
-    --surface-2: #1a232e;
-    --edge:      #232e3b;
-    --edge-soft: #1b242f;
+    /* Sampled from the rep4rep mark: #5B72C3 on #292929. */
+    --brand:     #5b72c3;
+    --bg:        #5b72c3;
+    --panel:     #4d63b0;
+    --panel-2:   #45599f;
+    --sunken:    #2b3560;
+    --edge:      rgba(255,255,255,.16);
+    --edge-soft: rgba(255,255,255,.09);
 
-    --ink:       #dbe4ee;
-    --ink-dim:   #8b98a5;
-    --ink-faint: #5a6672;
+    --ink:       #ffffff;
+    --ink-dim:   rgba(255,255,255,.74);
+    --ink-faint: rgba(255,255,255,.48);
 
-    --accent:    #4da3ff;
-    --accent-dim:#2a5f99;
-    --ok:        #57c77b;
-    --warn:      #e3b341;
-    --bad:       #f0806c;
+    --ok:        #8ce8a3;
+    --warn:      #ffd873;
+    --bad:       #ff9f8e;
 
     --radius: 10px;
     --tab: tabular-nums;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   html, body { height: 100%; }
   body {
     background: var(--bg);
@@ -44,134 +44,158 @@
 
   #bar {
     height: 44px; flex: none;
-    display: flex; align-items: center; gap: 10px;
-    /* right padding clears the native window controls drawn by titleBarOverlay */
-    padding: 0 148px 0 16px;
-    background: var(--bg);
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 148px 0 16px;   /* right padding clears the native window buttons */
+    background: rgba(0,0,0,.14);
     border-bottom: 1px solid var(--edge-soft);
     -webkit-app-region: drag;
   }
-  #bar .mark {
-    width: 20px; height: 20px; border-radius: 6px;
-    background: linear-gradient(135deg, var(--accent), #8b5cf6);
-    flex: none;
-  }
-  #bar h1 { font-size: 13px; font-weight: 650; letter-spacing: .01em; }
+  #bar img { height: 22px; width: auto; display: block; margin-left: 2px; }
   #bar .spacer { flex: 1; }
-  #bar .acct { display: flex; align-items: center; gap: 8px; -webkit-app-region: no-drag; }
-  #bar .acct .name { color: var(--ink-dim); }
+  #bar .who { color: var(--ink-dim); -webkit-app-region: no-drag; }
   #bar .pts {
-    font-weight: 650; color: var(--ok);
-    font-variant-numeric: var(--tab);
-    background: rgba(87,199,123,.1);
-    border: 1px solid rgba(87,199,123,.22);
-    padding: 3px 9px; border-radius: 999px; font-size: 12px;
+    font-weight: 650; color: #fff; font-variant-numeric: var(--tab); font-size: 12px;
+    background: rgba(255,255,255,.16); border: 1px solid var(--edge);
+    padding: 3px 10px; border-radius: 999px; -webkit-app-region: no-drag;
   }
 
   /* ---------- layout ---------- */
 
-  #shell { flex: 1; display: grid; grid-template-columns: 290px 1fr; min-height: 0; }
-
+  #shell { flex: 1; display: grid; grid-template-columns: 310px 1fr; min-height: 0; }
   aside {
-    background: var(--surface);
+    background: rgba(0,0,0,.10);
     border-right: 1px solid var(--edge-soft);
     display: flex; flex-direction: column; min-height: 0;
   }
   main { display: flex; flex-direction: column; min-height: 0; }
 
   .head {
-    flex: none; padding: 16px 16px 10px;
-    font-size: 10.5px; font-weight: 650; letter-spacing: .1em;
+    flex: none; display: flex; align-items: center;
+    padding: 15px 16px 9px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
     text-transform: uppercase; color: var(--ink-faint);
   }
+  .head button {
+    margin: 0 0 0 auto; width: auto; padding: 3px 9px; font-size: 11px; font-weight: 600;
+    background: rgba(255,255,255,.14); color: #fff; border: 1px solid var(--edge);
+    border-radius: 6px; letter-spacing: 0; text-transform: none;
+  }
+  .head button:hover { background: rgba(255,255,255,.24); }
 
   /* ---------- profile cards ---------- */
 
   #profiles { flex: 1; overflow-y: auto; padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
 
   .card {
+    position: relative;
     display: flex; align-items: center; gap: 12px;
     padding: 11px 12px;
-    background: var(--surface-2);
-    border: 1px solid var(--edge);
+    background: rgba(255,255,255,.07);
+    border: 1px solid var(--edge-soft);
     border-radius: var(--radius);
+    transition: background .15s, border-color .15s;
   }
-  .card.spent { border-color: rgba(240,128,108,.28); }
-  .card img { width: 38px; height: 38px; border-radius: 8px; flex: none; background: var(--edge); }
+  .card.pick { cursor: pointer; }
+  .card.pick:hover { background: rgba(255,255,255,.12); }
+  .card.on { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.42); }
+  .card.out { opacity: .62; }
+
+  .card img.av { width: 38px; height: 38px; border-radius: 8px; flex: none; background: rgba(0,0,0,.25); }
   .card .meta { flex: 1; min-width: 0; }
-  .card .nm {
-    font-weight: 600; color: #fff; font-size: 13px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  .card .nm { font-weight: 650; color: #fff; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .sub { font-size: 11.5px; color: var(--ink-faint); font-variant-numeric: var(--tab);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .tick {
+    position: absolute; top: 8px; left: 8px;
+    width: 16px; height: 16px; border-radius: 5px;
+    border: 1.5px solid rgba(255,255,255,.5); background: rgba(0,0,0,.2);
+    display: none; place-items: center; font-size: 10px; color: var(--brand); font-weight: 900;
   }
-  .card .sub { font-size: 11.5px; color: var(--ink-faint); font-variant-numeric: var(--tab); }
+  .card.pick .tick { display: grid; }
+  .card.on .tick { background: #fff; border-color: #fff; }
+  .card.pick { padding-left: 30px; }
+
+  .signin {
+    width: auto; margin: 0; padding: 5px 11px; font-size: 11.5px; font-weight: 650;
+    background: #fff; color: var(--brand); border-radius: 7px; flex: none;
+  }
+  .signout {
+    position: absolute; top: 6px; right: 8px;
+    width: auto; margin: 0; padding: 1px 5px; font-size: 13px; line-height: 1;
+    background: transparent; color: var(--ink-faint); border: 0; opacity: 0;
+    transition: opacity .15s, color .15s;
+  }
+  .card:hover .signout { opacity: 1; }
+  .signout:hover { color: var(--bad); background: transparent; }
 
   .ring { position: relative; width: 38px; height: 38px; flex: none; }
   .ring svg { transform: rotate(-90deg); display: block; }
   .ring circle { fill: none; stroke-width: 3.5; stroke-linecap: round; }
-  .ring .track { stroke: var(--edge); }
+  .ring .track { stroke: rgba(0,0,0,.22); }
   .ring .fill  { stroke: var(--ok); transition: stroke-dashoffset .45s ease, stroke .3s; }
   .card.spent .ring .fill { stroke: var(--bad); }
   .ring b {
-    position: absolute; inset: 0;
-    display: grid; place-items: center;
-    font-size: 10.5px; font-weight: 650; color: var(--ink-dim);
-    font-variant-numeric: var(--tab);
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: 11px; font-weight: 700; color: #fff; font-variant-numeric: var(--tab);
   }
 
   /* ---------- controls ---------- */
 
   #controls { flex: none; border-top: 1px solid var(--edge-soft); padding: 14px 16px 16px; }
 
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; margin-bottom: 12px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
   .field label {
-    display: block; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
-    color: var(--ink-faint); margin-bottom: 4px; font-weight: 600;
+    display: block; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 5px; font-weight: 700;
   }
+  .field .wrap { position: relative; display: flex; align-items: center; }
   .field input {
-    width: 100%; padding: 7px 9px;
-    background: var(--bg); color: var(--ink);
-    border: 1px solid var(--edge); border-radius: 7px;
-    font: inherit; font-variant-numeric: var(--tab);
-    user-select: text;
+    width: 100%; padding: 10px 12px;
+    background: rgba(0,0,0,.24); color: #fff;
+    border: 1px solid var(--edge); border-radius: 9px;
+    font: inherit; font-size: 14px; font-weight: 600; font-variant-numeric: var(--tab);
+    user-select: text; transition: border-color .15s, background .15s;
+    -moz-appearance: textfield;
   }
-  .field input:focus { outline: none; border-color: var(--accent-dim); background: #0a0e13; }
+  .field input::-webkit-outer-spin-button,
+  .field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .field input:hover { background: rgba(0,0,0,.3); }
+  .field input:focus { outline: none; border-color: #fff; background: rgba(0,0,0,.34); }
+  .field .unit {
+    position: absolute; right: 11px; font-size: 11px; color: var(--ink-faint);
+    pointer-events: none; font-weight: 600;
+  }
 
   .toggle {
-    display: flex; align-items: center; gap: 9px;
-    padding: 7px 0; cursor: pointer; color: var(--ink-dim); font-size: 12.5px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; cursor: pointer; color: var(--ink-dim); font-size: 12.5px;
   }
-  .toggle input { appearance: none; margin: 0; flex: none; width: 32px; height: 18px;
-    background: var(--edge); border-radius: 999px; position: relative; cursor: pointer;
-    transition: background .18s; }
+  .toggle input {
+    appearance: none; margin: 0; flex: none; width: 34px; height: 19px;
+    background: rgba(0,0,0,.28); border: 1px solid var(--edge);
+    border-radius: 999px; position: relative; cursor: pointer; transition: background .18s;
+  }
   .toggle input::after {
     content: ''; position: absolute; top: 2px; left: 2px;
-    width: 14px; height: 14px; border-radius: 50%; background: var(--ink-faint);
+    width: 13px; height: 13px; border-radius: 50%; background: rgba(255,255,255,.6);
     transition: transform .18s, background .18s;
   }
-  .toggle input:checked { background: var(--accent-dim); }
-  .toggle input:checked::after { transform: translateX(14px); background: var(--accent); }
-  .toggle:hover { color: var(--ink); }
+  .toggle input:checked { background: #fff; border-color: #fff; }
+  .toggle input:checked::after { transform: translateX(15px); background: var(--brand); }
+  .toggle:hover { color: #fff; }
 
   button {
-    width: 100%; padding: 10px; margin-top: 8px;
-    border: 0; border-radius: 8px; cursor: pointer;
-    font: inherit; font-weight: 650; font-size: 13px; color: #06121f;
-    background: var(--accent);
-    transition: filter .15s, opacity .15s;
+    width: 100%; padding: 11px; margin-top: 8px;
+    border: 0; border-radius: 9px; cursor: pointer;
+    font: inherit; font-weight: 700; font-size: 13.5px;
+    color: var(--brand); background: #fff;
+    transition: filter .15s, opacity .15s, background .15s;
   }
-  button:hover:not(:disabled) { filter: brightness(1.1); }
-  button.ghost {
-    background: transparent; color: var(--bad);
-    border: 1px solid rgba(240,128,108,.32);
-  }
-  button.ghost:hover:not(:disabled) { background: rgba(240,128,108,.1); }
-  button:disabled { opacity: .35; cursor: default; }
-
-  select {
-    width: 100%; padding: 7px 9px; margin-bottom: 12px;
-    background: var(--bg); color: var(--ink);
-    border: 1px solid var(--edge); border-radius: 7px; font: inherit;
-  }
+  button:hover:not(:disabled) { filter: brightness(.94); }
+  button.ghost { background: transparent; color: #fff; border: 1px solid var(--edge); font-weight: 600; }
+  button.ghost:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+  button:disabled { opacity: .38; cursor: default; }
 
   /* ---------- run strip ---------- */
 
@@ -180,33 +204,30 @@
     padding: 14px 20px; border-bottom: 1px solid var(--edge-soft);
   }
   .pill {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 5px 11px; border-radius: 999px;
-    font-size: 12px; font-weight: 600;
-    background: var(--surface-2); border: 1px solid var(--edge); color: var(--ink-dim);
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 650;
+    background: rgba(0,0,0,.2); border: 1px solid var(--edge-soft); color: var(--ink-dim);
   }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); flex: none; }
-  .pill.live { color: var(--ok); border-color: rgba(87,199,123,.3); background: rgba(87,199,123,.08); }
+  .pill.live { color: #fff; border-color: rgba(140,232,163,.5); background: rgba(140,232,163,.16); }
   .pill.live .dot { background: var(--ok); animation: pulse 1.6s ease-in-out infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .2; } }
 
-  #tally { margin-left: auto; display: flex; gap: 18px; }
+  #tally { margin-left: auto; display: flex; gap: 20px; }
   #tally div { text-align: right; }
   #tally b {
-    display: block; font-size: 19px; font-weight: 650; line-height: 1.1;
+    display: block; font-size: 20px; font-weight: 700; line-height: 1.1;
     font-variant-numeric: var(--tab); color: #fff;
   }
   #tally b.ok { color: var(--ok); }
   #tally b.bad { color: var(--bad); }
-  #tally span { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); }
+  #tally span { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); }
 
   /* ---------- countdown ---------- */
 
   #hero {
-    display: none; flex: none; margin: 16px 20px 0;
-    padding: 18px; text-align: center;
-    background: linear-gradient(180deg, rgba(227,179,65,.07), transparent);
-    border: 1px solid rgba(227,179,65,.24); border-radius: var(--radius);
+    display: none; flex: none; margin: 16px 20px 0; padding: 18px; text-align: center;
+    background: rgba(0,0,0,.2); border: 1px solid rgba(255,216,115,.32); border-radius: var(--radius);
   }
   #hero.on { display: block; }
   #hero .t {
@@ -217,31 +238,48 @@
 
   /* ---------- feed ---------- */
 
-  #feed { flex: 1; overflow-y: auto; padding: 12px 20px 20px; min-height: 0; }
+  #feedWrap { flex: 1; padding: 12px 20px 20px; min-height: 0; display: flex; }
+  #feed {
+    flex: 1; overflow-y: auto; min-height: 0;
+    background: var(--sunken); border: 1px solid var(--edge-soft);
+    border-radius: var(--radius); padding: 12px 14px;
+  }
   #feed::-webkit-scrollbar, #profiles::-webkit-scrollbar { width: 9px; }
   #feed::-webkit-scrollbar-thumb, #profiles::-webkit-scrollbar-thumb {
-    background: var(--edge); border-radius: 9px; border: 3px solid transparent; background-clip: content-box;
+    background: rgba(255,255,255,.2); border-radius: 9px; border: 3px solid transparent; background-clip: content-box;
   }
 
-  .ev { display: flex; gap: 11px; padding: 5px 0; align-items: baseline; }
+  .ev { display: flex; gap: 11px; padding: 4px 0; align-items: baseline; }
   .ev time { flex: none; width: 56px; font-size: 11px; color: var(--ink-faint); font-variant-numeric: var(--tab); }
   .ev .ico { flex: none; width: 14px; text-align: center; font-size: 11px; color: var(--ink-faint); }
   .ev .msg { flex: 1; color: var(--ink-dim); user-select: text; }
-  .ev.ok  .msg { color: var(--ink); }
+  .ev.ok  .msg { color: #fff; }
   .ev.ok  .ico { color: var(--ok); }
-  .ev.bad .msg { color: var(--bad); }
-  .ev.bad .ico { color: var(--bad); }
+  .ev.bad .msg, .ev.bad .ico { color: var(--bad); }
+
+  .acct-head {
+    display: flex; align-items: center; gap: 9px;
+    margin: 14px 0 8px; padding-bottom: 7px;
+    border-bottom: 1px solid var(--edge-soft);
+    font-weight: 700; color: #fff; font-size: 12.5px;
+  }
+  .acct-head:first-child { margin-top: 0; }
+  .acct-head span { color: var(--ink-faint); font-weight: 500; font-size: 11.5px; }
 
   .batch {
     margin: 8px 0 8px 67px; padding: 10px 12px;
-    background: var(--surface); border: 1px solid var(--edge-soft);
-    border-left: 2px solid var(--accent-dim); border-radius: 8px;
+    background: rgba(255,255,255,.06); border-left: 2px solid rgba(255,255,255,.45);
+    border-radius: 8px;
   }
   .batch .row { display: flex; gap: 10px; padding: 3px 0; align-items: baseline; }
-  .batch .who { color: var(--ink); font-weight: 600; flex: none; }
-  .batch .q { color: var(--accent); font-size: 12.5px; user-select: text; }
+  .batch .who { color: #fff; font-weight: 650; flex: none; }
+  .batch .q { color: rgba(255,255,255,.8); font-size: 12.5px; user-select: text; }
 
-  /* ---------- first-run setup ---------- */
+  #empty { display: grid; place-items: center; height: 100%; text-align: center; }
+  #empty .big { font-size: 15px; color: var(--ink-dim); margin-bottom: 6px; }
+  #empty .small { font-size: 12.5px; color: var(--ink-faint); max-width: 340px; line-height: 1.6; }
+
+  /* ---------- first-run / add account ---------- */
 
   #setup {
     display: none; position: fixed; inset: 44px 0 0; z-index: 20;
@@ -250,47 +288,33 @@
   #setup.on { display: grid; }
   #setup .box { width: 100%; max-width: 380px; }
   #setup .steps { display: flex; gap: 6px; margin-bottom: 22px; }
-  #setup .steps i { flex: 1; height: 3px; border-radius: 3px; background: var(--edge); }
+  #setup .steps i { flex: 1; height: 3px; border-radius: 3px; background: rgba(255,255,255,.2); }
   #setup .steps i.done { background: var(--ok); }
-  #setup .steps i.now { background: var(--accent); }
-  #setup h2 {
-    font-size: 19px; font-weight: 600; color: #fff; margin-bottom: 7px;
-    letter-spacing: -.01em; text-transform: none;
-  }
+  #setup .steps i.now { background: #fff; }
+  #setup h2 { font-size: 19px; font-weight: 700; color: #fff; margin-bottom: 7px; letter-spacing: -.01em; }
   #setup p { color: var(--ink-dim); font-size: 12.5px; line-height: 1.65; margin-bottom: 18px; }
-  #setup p a { color: var(--accent); }
+  #setup p a { color: #fff; }
   #setup input {
-    width: 100%; padding: 10px 12px; margin-bottom: 10px;
-    background: var(--surface-2); color: var(--ink);
-    border: 1px solid var(--edge); border-radius: 8px; font: inherit; font-size: 13px;
+    width: 100%; padding: 11px 13px; margin-bottom: 10px;
+    background: rgba(0,0,0,.24); color: #fff;
+    border: 1px solid var(--edge); border-radius: 9px; font: inherit; font-size: 13px;
     user-select: text;
   }
-  #setup input:focus { outline: none; border-color: var(--accent-dim); }
+  #setup input::placeholder { color: var(--ink-faint); }
+  #setup input:focus { outline: none; border-color: #fff; background: rgba(0,0,0,.32); }
   #setup .err { color: var(--bad); font-size: 12.5px; margin-bottom: 10px; min-height: 17px; }
   #setup .hint { color: var(--ink-faint); font-size: 11.5px; margin-top: 12px; line-height: 1.6; }
   .step { display: none; }
   .step.on { display: block; }
-
-  #empty { display: grid; place-items: center; height: 100%; text-align: center; }
-  #empty .big { font-size: 15px; color: var(--ink-dim); margin-bottom: 6px; }
-  #empty .small { font-size: 12.5px; color: var(--ink-faint); max-width: 330px; line-height: 1.6; }
-  #empty code {
-    user-select: text; font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px;
-    background: var(--surface-2); border: 1px solid var(--edge);
-    padding: 2px 6px; border-radius: 5px; color: var(--accent);
-  }
 </style>
 </head>
 <body>
 
 <div id="bar">
-  <div class="mark"></div>
-  <h1>Rep4Rep</h1>
+  <img src="logo.png" alt="Rep4Rep">
   <div class="spacer"></div>
-  <div class="acct">
-    <span class="name" id="who">—</span>
-    <span class="pts" id="pts" style="display:none"></span>
-  </div>
+  <span class="who" id="who">—</span>
+  <span class="pts" id="pts" style="display:none"></span>
 </div>
 
 <div id="setup">
@@ -308,18 +332,19 @@
     </div>
 
     <div class="step" id="stepSteam">
-      <h2>Sign in to Steam</h2>
-      <p>Needed once, to post comments on your behalf. Your password is sent straight to Steam
-         and never written to disk — only the sign-in token Steam returns is saved.</p>
+      <h2 id="steamTitle">Sign in to Steam</h2>
+      <p>Needed once per account, to post comments on your behalf. Your password goes straight
+         to Steam and is never written to disk — only the sign-in token Steam returns is saved.</p>
       <input type="text" id="steamUser" placeholder="Steam username" autocomplete="off" spellcheck="false">
       <input type="password" id="steamPass" placeholder="Steam password" autocomplete="off">
       <div class="err" id="steamErr"></div>
       <button id="steamGo">Sign in</button>
-      <div class="hint">A Steam Guard code will be asked for next if your account uses one.</div>
+      <button id="steamCancel" class="ghost" style="display:none">Cancel</button>
+      <div class="hint">A Steam Guard code will be asked for next if the account uses one.</div>
     </div>
 
     <div class="step" id="stepCode">
-      <h2 id="codeTitle">Steam Guard</h2>
+      <h2>Steam Guard</h2>
       <p id="codeMsg"></p>
       <input type="text" id="codeIn" placeholder="Code" autocomplete="off" spellcheck="false"
              maxlength="8" style="letter-spacing:.3em; text-transform:uppercase">
@@ -336,17 +361,19 @@
 
 <div id="shell">
   <aside>
-    <div class="head">Profiles</div>
+    <div class="head">Profiles <button id="addAcct">+ Add account</button></div>
     <div id="profiles"></div>
 
     <div id="controls">
-      <select id="account"></select>
-
       <div class="grid">
-        <div class="field"><label for="count">Comments</label><input type="number" id="count" value="10" min="1" max="100"></div>
-        <div class="field"><label for="batch">Per fetch</label><input type="number" id="batch" value="3" min="1" max="20"></div>
-        <div class="field"><label for="min">Min pause</label><input type="number" id="min" value="20" min="0"></div>
-        <div class="field"><label for="max">Max pause</label><input type="number" id="max" value="45" min="0"></div>
+        <div class="field"><label for="count">Comments</label>
+          <div class="wrap"><input type="number" id="count" value="10" min="1" max="100"></div></div>
+        <div class="field"><label for="batch">Per fetch</label>
+          <div class="wrap"><input type="number" id="batch" value="3" min="1" max="20"></div></div>
+        <div class="field"><label for="min">Min pause</label>
+          <div class="wrap"><input type="number" id="min" value="20" min="0"><span class="unit">sec</span></div></div>
+        <div class="field"><label for="max">Max pause</label>
+          <div class="wrap"><input type="number" id="max" value="45" min="0"><span class="unit">sec</span></div></div>
       </div>
 
       <label class="toggle"><input type="checkbox" id="wait"> Wait out cooldowns</label>
@@ -369,14 +396,14 @@
 
     <div id="hero"><div class="t">—</div><div class="c"></div></div>
 
-    <div id="feed">
+    <div id="feedWrap"><div id="feed">
       <div id="empty">
         <div>
           <div class="big">Nothing running</div>
-          <div class="small" id="emptyHint">Pick an account and start a run.</div>
+          <div class="small" id="emptyHint">Pick the profiles to run, then start.</div>
         </div>
       </div>
-    </div>
+    </div></div>
   </main>
 </div>
 
@@ -391,22 +418,42 @@ function duration(ms) {
   return h ? h + ':' + pad(m) + ':' + pad(sec) : m + ':' + pad(sec);
 }
 
+/** Coarse wait for the profile cards -- seconds are noise over a 24h window. */
+function shortWait(ms) {
+  const mins = Math.max(0, Math.round(ms / 60000));
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return h ? h + 'h ' + pad(m) + 'm' : m + 'm';
+}
+
 let running = false;
 let until = null;
 let tally = { done: 0, failed: 0, fetches: 0 };
+let selected = null;          // Set of account names; null = not initialised yet
+let addingAccount = false;
+let queued = [];              // answers steamLogin will ask for, in order
+let pendingAsk = null;
 
 /* ---------- chrome ---------- */
 
 function setRunning(on) {
   running = on;
-  $('go').disabled = on;
+  $('go').disabled = on || !(selected && selected.size);
   $('halt').disabled = !on;
-  $('go').textContent = on ? 'Running…' : 'Start run';
   $('pill').className = 'pill' + (on ? ' live' : '');
   $('pillText').textContent = on ? 'Running' : 'Idle';
+  updateGoLabel();
 }
 
-function bump(k, v) { tally[k] = v; $(k === 'done' ? 'tDone' : k === 'failed' ? 'tFail' : 'tFetch').textContent = v; }
+function updateGoLabel() {
+  if (running) { $('go').textContent = 'Running…'; return; }
+  const n = selected ? selected.size : 0;
+  $('go').textContent = n > 1 ? 'Start run · ' + n + ' accounts' : 'Start run';
+}
+
+function bump(k, v) {
+  tally[k] = v;
+  $(k === 'done' ? 'tDone' : k === 'failed' ? 'tFail' : 'tFetch').textContent = v;
+}
 
 function clearFeed() {
   $('feed').innerHTML = '';
@@ -435,64 +482,78 @@ setInterval(() => {
   hero.querySelector('.t').textContent = duration(left);
 }, 250);
 
-/* ---------- state ---------- */
+/* ---------- profiles ---------- */
 
 function ring(used, limit) {
-  // The ring shows what is LEFT, so it drains as the day is spent.
+  // Shows what is LEFT, so it drains as the day is spent.
   const r = 17, circ = 2 * Math.PI * r;
   const left = Math.max(0, limit - used);
   const off = circ - Math.min(1, left / limit) * circ;
   return '<div class="ring"><svg width="38" height="38">'
     + '<circle class="track" cx="19" cy="19" r="' + r + '"></circle>'
     + '<circle class="fill" cx="19" cy="19" r="' + r + '" stroke-dasharray="' + circ + '" stroke-dashoffset="' + off + '"></circle>'
-    + '</svg><b>' + (limit - used) + '</b></div>';
+    + '</svg><b>' + left + '</b></div>';
 }
 
-async function refresh() {
-  const s = await window.api.state();
+function drawProfiles(profiles) {
+  const runnable = profiles.filter(p => p.accountName).map(p => p.accountName);
 
-  $('who').textContent = s.user ? s.user.username : (s.error ? 'not connected' : '—');
-  if (s.user) { $('pts').style.display = ''; $('pts').textContent = s.user.points + ' pts'; }
+  // Default: every signed-in account is selected.
+  if (selected === null) selected = new Set(runnable);
+  else for (const n of [...selected]) if (!runnable.includes(n)) selected.delete(n);
 
-  const sel = $('account');
-  if (!sel.options.length && s.accounts.length) {
-    for (const a of s.accounts) sel.add(new Option(a.name, a.name));
-  }
-
-  $('profiles').innerHTML = s.profiles.map(p => {
+  $('profiles').innerHTML = profiles.map(p => {
     const u = p.usage;
     const spent = u.remaining === 0;
     const sub = spent && u.resetAt
-      ? 'full · resets in ' + duration(u.resetAt - Date.now())
-      : u.used + ' of ' + u.limit + ' used today';
-    return '<div class="card' + (spent ? ' spent' : '') + '">'
-      + '<img src="' + esc(p.avatar || '') + '" alt="">'
+      ? 'full · ' + shortWait(u.resetAt - Date.now())
+      : u.used + '/' + u.limit + ' used today';
+
+    if (!p.accountName) {
+      return '<div class="card out" data-steam="' + esc(p.steamId) + '">'
+        + '<img class="av" src="' + esc(p.avatar || '') + '" alt="">'
+        + '<div class="meta"><div class="nm">' + esc(p.personaName) + '</div>'
+        + '<div class="sub">not signed in</div></div>'
+        + '<button class="signin" data-signin="1">Sign in</button></div>';
+    }
+
+    const on = selected.has(p.accountName);
+    return '<div class="card pick' + (on ? ' on' : '') + (spent ? ' spent' : '')
+      + '" data-acct="' + esc(p.accountName) + '">'
+      + '<div class="tick">' + (on ? '✓' : '') + '</div>'
+      + '<img class="av" src="' + esc(p.avatar || '') + '" alt="">'
       + '<div class="meta"><div class="nm">' + esc(p.personaName) + '</div>'
-      + '<div class="sub">' + sub + '</div></div>'
-      + ring(u.used, u.limit) + '</div>';
+      + '<div class="sub">' + esc(p.accountName) + ' · ' + sub + '</div></div>'
+      + ring(u.used, u.limit)
+      + '<button class="signout" title="Sign this account out">×</button></div>';
   }).join('');
 
-  if (s.needs && (s.needs.token || s.needs.steam)) {
-    openSetup(s.needs);
-    $('go').disabled = true;
-  } else {
-    closeSetup();
-    const hint = $('emptyHint');
-    if (s.error) {
-      hint.textContent = s.error;
-      $('go').disabled = true;
-    } else {
-      hint.textContent = 'Pick an account and start a run.';
-      if (!running) $('go').disabled = false;
-    }
-  }
-
-  setRunning(s.running);
+  updateGoLabel();
 }
 
-/* ---------- first-run setup ---------- */
+$('profiles').onclick = async e => {
+  if (running) return;
 
-let pendingAsk = null;   // an id the main process is waiting on
+  if (e.target.matches('[data-signin]')) return openAddAccount();
+
+  if (e.target.matches('.signout')) {
+    const name = e.target.closest('.card').dataset.acct;
+    await window.api.removeAccount(name);
+    selected.delete(name);
+    return refresh();
+  }
+
+  const card = e.target.closest('.card.pick');
+  if (!card) return;
+  const name = card.dataset.acct;
+  if (selected.has(name)) selected.delete(name); else selected.add(name);
+  card.classList.toggle('on');
+  card.querySelector('.tick').textContent = selected.has(name) ? '✓' : '';
+  updateGoLabel();
+  $('go').disabled = !selected.size;
+};
+
+/* ---------- setup / add account ---------- */
 
 function showStep(id) {
   for (const el of document.querySelectorAll('.step')) el.classList.toggle('on', el.id === id);
@@ -509,24 +570,39 @@ function openSetup(needs) {
   // Already open means the user is part-way through; the background refresh
   // must not yank them back to the first step.
   if ($('setup').classList.contains('on')) return;
-
   $('setup').classList.add('on');
   if (needs.token) { markSteps(1); showStep('stepToken'); }
   else { markSteps(2); showStep('stepSteam'); }
 }
 
-const closeSetup = () => $('setup').classList.remove('on');
+function openAddAccount() {
+  addingAccount = true;
+  $('setup').classList.add('on');
+  markSteps(2);
+  $('steamUser').value = ''; $('steamPass').value = ''; $('steamErr').textContent = '';
+  $('steamTitle').textContent = 'Add a Steam account';
+  $('steamCancel').style.display = '';
+  showStep('stepSteam');
+}
+
+function closeSetup() {
+  $('setup').classList.remove('on');
+  addingAccount = false;
+  $('steamCancel').style.display = 'none';
+  $('steamTitle').textContent = 'Sign in to Steam';
+}
+
+$('addAcct').onclick = () => { if (!running) openAddAccount(); };
+$('steamCancel').onclick = () => { queued = []; closeSetup(); };
 
 $('tokenGo').onclick = async () => {
   const v = $('tokenIn').value.trim();
   $('tokenErr').textContent = '';
   if (!v) { $('tokenErr').textContent = 'Paste a token first.'; return; }
 
-  $('tokenGo').disabled = true;
-  $('tokenGo').textContent = 'Checking…';
+  $('tokenGo').disabled = true; $('tokenGo').textContent = 'Checking…';
   const r = await window.api.saveToken(v);
-  $('tokenGo').disabled = false;
-  $('tokenGo').textContent = 'Continue';
+  $('tokenGo').disabled = false; $('tokenGo').textContent = 'Continue';
 
   if (r.error) { $('tokenErr').textContent = r.error; return; }
 
@@ -542,8 +618,8 @@ $('steamGo').onclick = async () => {
   $('steamErr').textContent = '';
   if (!user || !pass) { $('steamErr').textContent = 'Both fields are needed.'; return; }
 
-  // steamLogin asks for the username and password through the same ask channel
-  // the Guard code uses, so queue these two answers for it to collect.
+  // steamLogin asks for username and password through the same channel the
+  // Guard code uses, so queue these two for it to collect in order.
   queued = [user, pass];
   $('busyTitle').textContent = 'Signing in…';
   showStep('stepBusy');
@@ -557,11 +633,10 @@ $('steamGo').onclick = async () => {
     showStep('stepSteam');
     return;
   }
+  selected = null;          // re-default the selection to include the new account
   closeSetup();
   refresh();
 };
-
-let queued = [];
 
 $('codeGo').onclick = () => {
   const v = $('codeIn').value.trim();
@@ -580,7 +655,6 @@ for (const id of ['tokenIn', 'steamPass', 'codeIn']) {
   });
 }
 
-/** Main process is asking a question mid-login. */
 function handleAsk(ev) {
   if (queued.length) return window.api.answer(ev.id, queued.shift());
   pendingAsk = ev.id;
@@ -588,15 +662,51 @@ function handleAsk(ev) {
   showStep('stepCode');
 }
 
+/* ---------- state ---------- */
+
+async function refresh() {
+  const s = await window.api.state();
+
+  $('who').textContent = s.user ? s.user.username : (s.error ? 'not connected' : '—');
+  if (s.user) { $('pts').style.display = ''; $('pts').textContent = s.user.points + ' pts'; }
+
+  drawProfiles(s.profiles);
+
+  if (s.needs && (s.needs.token || s.needs.steam) && !addingAccount) {
+    openSetup(s.needs);
+    $('go').disabled = true;
+  } else {
+    if (!addingAccount) closeSetup();
+    const hint = $('emptyHint');
+    if (s.error) {
+      hint.textContent = s.error;
+      $('go').disabled = true;
+    } else {
+      hint.textContent = 'Pick the profiles to run, then start.';
+      if (!running) $('go').disabled = !(selected && selected.size);
+    }
+  }
+
+  setRunning(s.running);
+}
+
 /* ---------- events ---------- */
 
 window.api.onEvent(ev => {
   if (ev.type === 'ask') {
     handleAsk(ev);
+  } else if (ev.type === 'account') {
+    if (ev.persona) {
+      const el = document.createElement('div');
+      el.className = 'acct-head';
+      el.innerHTML = esc(ev.persona) + ' <span>' + esc(ev.name) + '</span>';
+      $('feed').appendChild(el);
+      $('feed').scrollTop = $('feed').scrollHeight;
+    }
   } else if (ev.type === 'log') {
     line(ev.kind, esc(ev.text));
   } else if (ev.type === 'fetch') {
-    bump('fetches', ev.n);
+    bump('fetches', tally.fetches + 1);
     line('note', 'Fetched ' + ev.offered + ' target' + (ev.offered === 1 ? '' : 's') + ', taking ' + ev.taken.length);
     const box = document.createElement('div');
     box.className = 'batch';
@@ -617,7 +727,7 @@ window.api.onEvent(ev => {
     if (!ev.running) { until = null; refresh(); }
   }
 
-  // Keep the counters honest even before the final result arrives.
+  // Keep counters moving before the final result arrives.
   if (ev.type === 'log' && ev.kind === 'ok' && /marked complete/.test(ev.text)) bump('done', tally.done + 1);
   if (ev.type === 'log' && ev.kind === 'bad') bump('failed', tally.failed + 1);
 });
@@ -625,10 +735,11 @@ window.api.onEvent(ev => {
 /* ---------- actions ---------- */
 
 $('go').onclick = async () => {
+  if (!selected || !selected.size) return;
   clearFeed();
   setRunning(true);
   const r = await window.api.run({
-    account: $('account').value,
+    accounts: [...selected],
     count: +$('count').value, batch: +$('batch').value, limit: 10,
     min: +$('min').value, max: +$('max').value,
     wait: $('wait').checked, ignoreQuota: $('ignoreQuota').checked,
@@ -639,7 +750,7 @@ $('go').onclick = async () => {
 $('halt').onclick = () => window.api.stop();
 
 refresh();
-setInterval(() => { if (!running) refresh(); }, 20000);
+setInterval(() => { if (!running && !addingAccount) refresh(); }, 20000);
 </script>
 </body>
 </html>

@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('api', {
     stop: () => ipcRenderer.invoke('stop'),
     saveToken: token => ipcRenderer.invoke('saveToken', token),
     steamLogin: account => ipcRenderer.invoke('steamLogin', account),
+    removeAccount: name => ipcRenderer.invoke('removeAccount', name),
     answer: (id, value) => ipcRenderer.invoke('answer', { id, value }),
     onEvent: handler => ipcRenderer.on('event', (_e, payload) => handler(payload)),
 });

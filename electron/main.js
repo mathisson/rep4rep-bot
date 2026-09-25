@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { getApiToken, saveApiToken, hasApiToken, readSessions } from '../src/config.js';
+import { getApiToken, saveApiToken, hasApiToken, readSessions, writeSessions } from '../src/config.js';
 import { Rep4Rep } from '../src/rep4rep.js';
 import { steamLogin, postProfileComment } from '../src/steam.js';
 import { runTasks } from '../src/runner.js';
@@ -56,26 +56,26 @@ const cancellableSleep = isCancelled => ms => new Promise((resolve, reject) => {
 /* the run, driven by the same runner the CLI uses                     */
 /* ------------------------------------------------------------------ */
 
-async function startRun(opts) {
-    let cancelled = false;
-    current = { cancel: () => { cancelled = true; } };
-    send({ type: 'status', running: true });
-
-    const sleep = cancellableSleep(() => cancelled);
+/** One Steam account, start to finish. Returns its tallies. */
+async function runAccount(accountName, opts, sleep, isCancelled) {
+    const r4r = new Rep4Rep(getApiToken());
     let session = null;
 
     try {
-        const r4r = new Rep4Rep(getApiToken());
-
-        log('note', 'Signing in to Steam…');
-        session = await steamLogin({ account: opts.account });
-        log('ok', `Signed in as ${session.accountName}`);
+        send({ type: 'account', name: accountName });
+        log('note', `Signing in as ${accountName}…`);
+        session = await steamLogin({ account: accountName });
 
         const profiles = await r4r.getSteamProfiles();
         const profile = profiles.find(p => String(p.steamId) === session.steamId64);
-        if (!profile) throw new Error(`${session.steamId64} is not linked to your rep4rep account.`);
+        if (!profile) {
+            log('bad', `${accountName} (${session.steamId64}) is not linked to your rep4rep account.`);
+            return { done: 0, failed: 1, fetches: 0 };
+        }
 
-        const result = await runTasks({
+        send({ type: 'account', name: accountName, persona: profile.personaName, steamId: profile.steamId });
+
+        return await runTasks({
             r4r,
             post: (target, text) => postProfileComment(session.community, target, text),
             profile,
@@ -116,13 +116,52 @@ async function startRun(opts) {
             maxDelay: opts.max,
             wait: opts.wait,
         });
+    } catch (err) {
+        if (err instanceof Cancelled) throw err;          // stop the whole run
+        log('bad', `${accountName}: ${err.message}`);
+        return { done: 0, failed: 1, fetches: 0 };
+    } finally {
+        session?.logOff();
+        if (isCancelled()) { /* nothing more to clean up */ }
+    }
+}
 
-        send({ type: 'result', ...result });
+async function startRun(opts) {
+    let cancelled = false;
+    current = { cancel: () => { cancelled = true; } };
+    send({ type: 'status', running: true });
+
+    const sleep = cancellableSleep(() => cancelled);
+    const total = { done: 0, failed: 0, fetches: 0 };
+
+    try {
+        const sessions = readSessions();
+        const names = (opts.accounts?.length ? opts.accounts : Object.keys(sessions))
+            .filter(n => sessions[n]);
+
+        if (!names.length) throw new Error('No Steam accounts are signed in.');
+
+        for (const [i, name] of names.entries()) {
+            if (cancelled) break;
+
+            const r = await runAccount(name, opts, sleep, () => cancelled);
+            total.done += r.done;
+            total.failed += r.failed;
+            total.fetches += r.fetches;
+
+            // Space out the switch so Steam does not see back-to-back logins.
+            if (i < names.length - 1 && !cancelled) {
+                log('note', 'Switching account…');
+                await sleep(5000);
+            }
+        }
+
+        send({ type: 'result', ...total, accounts: names.length });
     } catch (err) {
         if (err instanceof Cancelled) log('note', 'Stopped.');
         else log('bad', err.message);
+        send({ type: 'result', ...total });
     } finally {
-        session?.logOff();
         current = null;
         send({ type: 'status', running: false });
     }
@@ -154,8 +193,21 @@ ipcMain.handle('steamLogin', async (_e, account) => {
     }
 });
 
+ipcMain.handle('removeAccount', (_e, name) => {
+    const sessions = readSessions();
+    if (!sessions[name]) return { error: `No saved sign-in for ${name}.` };
+    delete sessions[name];
+    writeSessions(sessions);
+    return { ok: true };
+});
+
 ipcMain.handle('state', async () => {
     const sessions = readSessions();
+    // Which cached Steam sign-in belongs to which rep4rep profile.
+    const nameBySteamId = Object.fromEntries(
+        Object.entries(sessions).map(([name, s]) => [String(s.steamId), name])
+    );
+
     const out = {
         accounts: Object.entries(sessions).map(([name, s]) => ({ name, steamId: s.steamId })),
         needs: { token: !hasApiToken(), steam: Object.keys(sessions).length === 0 },
@@ -175,6 +227,7 @@ ipcMain.handle('state', async () => {
             personaName: p.personaName,
             avatar: p.avatar,
             canReceiveComment: p.canReceiveComment,
+            accountName: nameBySteamId[String(p.steamId)] || null,
             usage: getUsage(String(p.steamId)),
         }));
     } catch (err) {
@@ -205,10 +258,11 @@ function createWindow() {
         height: 780,
         minWidth: 940,
         minHeight: 620,
-        backgroundColor: '#0d1117',
+        backgroundColor: '#5b72c3',
         show: false,
         titleBarStyle: 'hidden',
-        titleBarOverlay: { color: '#0d1117', symbolColor: '#7d8792', height: 44 },
+        titleBarOverlay: { color: '#4f66b4', symbolColor: '#ffffff', height: 44 },
+        icon: path.join(here, '..', 'build', 'icon.ico'),
         webPreferences: {
             preload: path.join(here, 'preload.cjs'),
             contextIsolation: true,

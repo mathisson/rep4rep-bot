@@ -46,6 +46,7 @@ try {
     prune: true,
     asar: true,
         appVersion: pkg.version,
+        icon: 'build/icon.ico',
         appCopyright: 'Rep4Rep CLI',
         ignore,
     });
