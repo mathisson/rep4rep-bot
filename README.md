@@ -53,10 +53,32 @@ See what is waiting, without posting anything:
 npm start -- tasks
 ```
 
-Do a batch of 3 (the default), with a random 20–45s pause between comments:
+Do a full day's allowance — 10 comments — in one process, with a random 20–45s pause
+between each:
 
 ```bash
 npm start -- run
+```
+
+rep4rep only offers a few targets at a time and never the same target twice, so a single
+fetch cannot fill a run of 10. The run takes 3, posts them, then fetches again for the next
+set, repeating until it reaches `--count` or rep4rep runs dry:
+
+```
+fetch 1: 3 new target(s) offered, taking 3
+  someone      76561198...  "gg"
+  ...
+  ok  [3/10] someone posted and marked complete
+
+fetch 2: 3 new target(s) offered, taking 3
+```
+
+Change the per-fetch size with `--batch` if rep4rep ever serves a different number.
+
+If you want it to sit through cooldowns and keep going rather than exiting, add `--wait`:
+
+```bash
+npm start -- run --wait
 ```
 
 Preview a run without logging into Steam or posting:
@@ -76,16 +98,21 @@ npm start -- run --dry-run
 | `profiles` | Just the linked profiles |
 | `add <steamProfile>` | Link a Steam profile (URL, SteamID64 or custom id) |
 | `tasks` | List available tasks |
+| `quota` | Show the 24h allowance used per account |
 | `run` | Post a batch of comments and mark them complete |
 
 ### `run` options
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `-n, --count <n>` | `3` | How many tasks to do |
+| `-n, --count <n>` | `10` | Total comments to post this run |
+| `-b, --batch <n>` | `3` | How many to take per fetch from rep4rep |
+| `-l, --limit <n>` | `10` | Comments allowed per account per 24h |
 | `--min <seconds>` | `20` | Minimum pause between comments |
 | `--max <seconds>` | `45` | Maximum pause between comments |
 | `-a, --account <name>` | — | Which cached Steam account to post from |
+| `-w, --wait` | — | Sit through cooldowns and continue instead of exiting |
+| `--ignore-quota` | — | Ignore the locally tracked allowance |
 | `-d, --dry-run` | — | Show the plan, post nothing, no Steam login |
 | `-y, --yes` | — | Skip the confirmation prompt |
 
@@ -93,6 +120,58 @@ Global: `--token <token>` overrides `REP4REP_TOKEN` for a single invocation.
 
 A task is only marked complete after its comment posts successfully, so a failure part-way
 through leaves the remaining tasks untouched and available on the next run.
+
+`--count` counts comments that actually landed. If a target refuses the comment (private
+profile, comments disabled) it is dropped, never retried, and the run fetches another
+target to make up for it.
+
+## Tests
+
+```bash
+npm test
+```
+
+Covers the fetch/post/re-fetch loop and the 24h ledger, both driven with fakes — no Steam
+login, no network, and the quota suite runs against a throwaway home directory.
+
+## The 24h allowance
+
+Steam allows roughly 10 profile comments per account per 24 hours. The CLI keeps its own
+ledger in `~/.rep4rep-cli/quota.json` so the count survives restarts — one run of 10 and
+ten runs of 1 are treated identically.
+
+The window is **rolling, not a midnight reset**. Each comment is stamped and ages out
+exactly 24 hours later, so slots come back one at a time rather than all at once.
+
+```bash
+npm start -- quota
+```
+
+```
+  76561198...  10/10 used  next slot Fri 19:33 in 3h 24m 09s
+```
+
+Before every comment the run checks the ledger. If the allowance is spent, or Steam has
+throttled the account, it either prints when the next slot opens and exits, or — with
+`--wait` — shows a live countdown and resumes on its own:
+
+```
+       allowance spent (10/10).
+       next slot in 3h 24m 09s  (at Fri 19:33)
+```
+
+When Steam returns a throttling error mid-run, that is recorded as a cooldown and the same
+handling applies. The task being posted is retried rather than skipped, so nothing is lost.
+
+If the ledger ever drifts out of step with reality — you commented from the Steam website,
+or moved machines — clear it:
+
+```bash
+npm start -- quota --reset
+```
+
+`--ignore-quota` bypasses the ledger for a single run without erasing it. Steam's own limit
+still applies; you just lose the early warning.
 
 ## Notes
 

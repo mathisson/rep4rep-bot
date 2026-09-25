@@ -122,6 +122,20 @@ export async function steamLogin({ account, interactive = false } = {}) {
     };
 }
 
+const RATE_LIMIT_SIGNS = [
+    /too frequently/i,       // "You've been posting too frequently, and can't make another post right now"
+    /rate.?limit/i,
+    /\b429\b/,
+    /try again later/i,
+    /temporarily blocked/i,
+];
+
+/** True when Steam refused the post because of throttling rather than a real problem. */
+export function isRateLimit(err) {
+    const message = err?.message || String(err || '');
+    return RATE_LIMIT_SIGNS.some(re => re.test(message));
+}
+
 /** Post a profile comment. Resolves with the Steam comment id when available. */
 export function postProfileComment(community, targetSteamId64, message) {
     return new Promise((resolve, reject) => {
