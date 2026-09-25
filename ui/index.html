@@ -168,9 +168,24 @@
   }
 
   .toggle {
+    position: relative;
     display: flex; align-items: center; gap: 10px;
     padding: 8px 0; cursor: pointer; color: var(--ink-dim); font-size: 12.5px;
   }
+  /* Hover help. Delayed so it does not flash while moving past. */
+  .toggle[data-tip]::after {
+    content: attr(data-tip);
+    position: absolute; bottom: calc(100% + 8px); left: -4px;
+    width: 250px; padding: 10px 12px;
+    background: var(--sunken); color: var(--ink-dim);
+    border: 1px solid var(--edge); border-radius: 9px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.4);
+    font-size: 11.5px; line-height: 1.55; font-weight: 400; white-space: normal;
+    opacity: 0; transform: translateY(4px); pointer-events: none;
+    transition: opacity .14s ease, transform .14s ease; transition-delay: .3s;
+    z-index: 30;
+  }
+  .toggle[data-tip]:hover::after { opacity: 1; transform: translateY(0); }
   .toggle input {
     appearance: none; margin: 0; flex: none; width: 34px; height: 19px;
     background: rgba(0,0,0,.28); border: 1px solid var(--edge);
@@ -376,8 +391,10 @@
           <div class="wrap"><input type="number" id="max" value="45" min="0"><span class="unit">sec</span></div></div>
       </div>
 
-      <label class="toggle"><input type="checkbox" id="wait"> Wait out cooldowns</label>
-      <label class="toggle"><input type="checkbox" id="ignoreQuota"> Ignore local ledger</label>
+      <label class="toggle" data-tip="When the daily allowance runs out, or Steam starts throttling, keep the run alive and count down to the next free slot instead of stopping. Slots come back one at a time, so this can idle for hours.">
+        <input type="checkbox" id="wait"> Wait out cooldowns</label>
+      <label class="toggle" data-tip="Skip this app's own 10-per-day count and let Steam decide when to refuse. Useful if the ledger has drifted — but a refused comment still burns the task.">
+        <input type="checkbox" id="ignoreQuota"> Ignore local ledger</label>
 
       <button id="go">Start run</button>
       <button id="halt" class="ghost" disabled>Stop</button>
