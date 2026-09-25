@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rep4Rep</title>
+<style>
+  :root {
+    --bg: #1b2838; --panel: #16202d; --edge: #2a475e; --ink: #c7d5e0;
+    --mute: #8f98a0; --accent: #66c0f4; --ok: #a4d007; --bad: #ff7b6b; --warn: #e8c03a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+    padding: 14px 20px; background: #171a21; border-bottom: 1px solid var(--edge);
+  }
+  header h1 { margin: 0; font-size: 16px; color: var(--accent); }
+  header .who { color: var(--mute); }
+  header .points { color: var(--ok); font-weight: 600; }
+  main { display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 16px; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--panel); border: 1px solid var(--edge); border-radius: 6px; padding: 14px; }
+  h2 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); }
+  label { display: block; margin-bottom: 9px; color: var(--mute); font-size: 12px; }
+  input[type=number], select {
+    width: 100%; margin-top: 3px; padding: 6px 8px; border-radius: 3px;
+    border: 1px solid #000; background: #316282; color: #fff; font: inherit;
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .check { display: flex; align-items: center; gap: 7px; margin-bottom: 9px; color: var(--ink); }
+  .check input { margin: 0; }
+  button {
+    width: 100%; padding: 9px; margin-top: 4px; border: 0; border-radius: 3px;
+    font: inherit; font-weight: 600; color: #fff; cursor: pointer;
+    background: linear-gradient(#75b022, #588a1b);
+  }
+  button.stop { background: linear-gradient(#d94126, #a12d19); }
+  button:disabled { opacity: .4; cursor: default; }
+  .meter { height: 6px; border-radius: 3px; background: #0d141c; overflow: hidden; margin: 6px 0 2px; }
+  .meter i { display: block; height: 100%; background: var(--ok); transition: width .3s; }
+  .meter.full i { background: var(--bad); }
+  .prof { padding: 8px 0; border-bottom: 1px solid #22303f; font-size: 13px; }
+  .prof:last-child { border-bottom: 0; }
+  .prof b { color: #fff; font-weight: 600; }
+  .prof small { color: var(--mute); }
+  #banner {
+    display: none; margin-bottom: 12px; padding: 10px 12px; border-radius: 4px;
+    background: #3a2c12; border: 1px solid #6b5220; color: var(--warn);
+  }
+  #countdown {
+    display: none; margin-bottom: 12px; padding: 12px; text-align: center;
+    border: 1px solid var(--edge); border-radius: 4px; background: #101822;
+  }
+  #countdown b { display: block; font-size: 26px; color: var(--warn); font-variant-numeric: tabular-nums; }
+  #countdown span { color: var(--mute); font-size: 12px; }
+  #log {
+    height: 420px; overflow-y: auto; background: #0d141c; border: 1px solid var(--edge);
+    border-radius: 4px; padding: 10px; font: 12px/1.6 Consolas, monospace; white-space: pre-wrap;
+  }
+  #log div { word-break: break-word; }
+  #log .ok { color: var(--ok); }
+  #log .bad { color: var(--bad); }
+  #log .note { color: var(--mute); }
+  #log time { color: #55636f; margin-right: 8px; }
+  .task { padding: 2px 0 2px 14px; color: var(--ink); }
+  .task em { color: var(--accent); font-style: normal; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Rep4Rep</h1>
+  <span class="who" id="who">connecting…</span>
+  <span class="points" id="points"></span>
+</header>
+
+<main>
+  <section>
+    <h2>Run</h2>
+    <div id="banner"></div>
+
+    <label>Steam account
+      <select id="account"></select>
+    </label>
+
+    <div class="row">
+      <label>Comments <input type="number" id="count" value="10" min="1" max="100"></label>
+      <label>Per fetch <input type="number" id="batch" value="3" min="1" max="20"></label>
+    </div>
+    <div class="row">
+      <label>Min pause (s) <input type="number" id="min" value="20" min="0"></label>
+      <label>Max pause (s) <input type="number" id="max" value="45" min="0"></label>
+    </div>
+    <label>Daily limit <input type="number" id="limit" value="10" min="1" max="100"></label>
+
+    <div class="check"><input type="checkbox" id="wait"><label for="wait" style="margin:0">Wait out cooldowns</label></div>
+    <div class="check"><input type="checkbox" id="ignoreQuota"><label for="ignoreQuota" style="margin:0">Ignore local ledger</label></div>
+
+    <button id="go">Start</button>
+    <button id="halt" class="stop" disabled>Stop</button>
+  </section>
+
+  <section>
+    <h2>Progress</h2>
+    <div id="countdown"><b>--</b><span></span></div>
+    <div id="log"></div>
+    <div id="profiles" style="margin-top:14px"></div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+let running = false;
+let countdownUntil = null;
+
+function setRunning(on) {
+  running = on;
+  $('go').disabled = on;
+  $('halt').disabled = !on;
+  $('go').textContent = on ? 'Running…' : 'Start';
+}
+
+function line(kind, html) {
+  const el = document.createElement('div');
+  if (kind) el.className = kind;
+  const t = new Date().toLocaleTimeString();
+  el.innerHTML = '<time>' + t + '</time>' + html;
+  $('log').appendChild(el);
+  $('log').scrollTop = $('log').scrollHeight;
+}
+
+function duration(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+  const pad = n => String(n).padStart(2, '0');
+  return h ? h + 'h ' + pad(m) + 'm ' + pad(sec) + 's' : m ? m + 'm ' + pad(sec) + 's' : sec + 's';
+}
+
+setInterval(() => {
+  const box = $('countdown');
+  if (!countdownUntil) { box.style.display = 'none'; return; }
+  const left = countdownUntil - Date.now();
+  if (left <= 0) { countdownUntil = null; box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.querySelector('b').textContent = duration(left);
+}, 250);
+
+/* ---- state ---- */
+
+async function refresh() {
+  const s = await fetch('/api/state').then(r => r.json());
+
+  $('who').textContent = s.user ? s.user.username : (s.error || 'not connected');
+  $('points').textContent = s.user ? s.user.points + ' points' : '';
+
+  const sel = $('account');
+  if (!sel.options.length) {
+    for (const a of s.accounts) sel.add(new Option(a.name + ' (' + a.steamId + ')', a.name));
+  }
+
+  const banner = $('banner');
+  if (!s.accounts.length) {
+    banner.style.display = 'block';
+    banner.textContent = 'No cached Steam session. Run  npm start -- login  in a terminal first.';
+    $('go').disabled = true;
+  } else if (s.error) {
+    banner.style.display = 'block';
+    banner.textContent = s.error;
+  } else {
+    banner.style.display = 'none';
+    if (!running) $('go').disabled = false;
+  }
+
+  $('profiles').innerHTML = s.profiles.map(p => {
+    const u = p.usage;
+    const pct = Math.min(100, u.used / u.limit * 100);
+    const reset = u.remaining === 0 && u.resetAt
+      ? ' · next slot in ' + duration(u.resetAt - Date.now())
+      : '';
+    return '<div class="prof"><b>' + esc(p.personaName) + '</b> <small>' + esc(p.steamId) + '</small>'
+      + '<div class="meter ' + (u.remaining === 0 ? 'full' : '') + '"><i style="width:' + pct + '%"></i></div>'
+      + '<small>' + u.used + '/' + u.limit + ' used today' + reset + '</small></div>';
+  }).join('');
+
+  setRunning(s.running);
+}
+
+/* ---- live events ---- */
+
+const events = new EventSource('/api/events');
+events.onmessage = e => {
+  const ev = JSON.parse(e.data);
+
+  if (ev.type === 'log') {
+    line(ev.kind === 'plain' ? '' : ev.kind, esc(ev.text));
+  } else if (ev.type === 'fetch') {
+    line('note', 'fetch ' + ev.n + ': ' + ev.offered + ' offered, taking ' + ev.taken.length);
+    for (const t of ev.taken) {
+      const el = document.createElement('div');
+      el.className = 'task';
+      el.innerHTML = esc(t.name) + ' <em>"' + esc(t.comment) + '"</em>';
+      $('log').appendChild(el);
+    }
+    $('log').scrollTop = $('log').scrollHeight;
+  } else if (ev.type === 'countdown') {
+    countdownUntil = ev.until;
+    if (ev.until) $('countdown').querySelector('span').textContent = ev.label || 'waiting';
+  } else if (ev.type === 'blocked') {
+    line('note', esc(ev.why) + ' until ' + new Date(ev.until).toLocaleString());
+  } else if (ev.type === 'status') {
+    setRunning(ev.running);
+    if (!ev.running) { countdownUntil = null; refresh(); }
+  } else if (ev.type === 'result') {
+    refresh();
+  }
+};
+
+/* ---- actions ---- */
+
+$('go').onclick = async () => {
+  $('log').innerHTML = '';
+  setRunning(true);
+  const body = {
+    account: $('account').value,
+    count: +$('count').value, batch: +$('batch').value, limit: +$('limit').value,
+    min: +$('min').value, max: +$('max').value,
+    wait: $('wait').checked, ignoreQuota: $('ignoreQuota').checked,
+  };
+  const r = await fetch('/api/run', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  if (!r.ok) { line('bad', esc((await r.json()).error)); setRunning(false); }
+};
+
+$('halt').onclick = () => fetch('/api/stop', { method: 'POST' });
+
+refresh();
+setInterval(() => { if (!running) refresh(); }, 15000);
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 {
   "name": "rep4rep-cli",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "description": "CLI that completes Rep4Rep comment tasks via the public API and the Steam client protocol.",
   "type": "module",
@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node src/cli.js",
-    "test": "node test/run.mjs"
+    "test": "node test/run.mjs",
+    "ui": "node src/cli.js ui"
   },
   "engines": {
     "node": ">=18"

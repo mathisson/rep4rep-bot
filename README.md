@@ -183,3 +183,18 @@ still applies; you just lose the early warning.
 - `npm audit` reports issues in `request`, a deprecated transitive dependency of
   `steamcommunity`. It is unmaintained upstream and cannot be resolved without dropping
   that library.
+
+## Browser UI
+
+```bash
+npm run ui
+```
+
+Serves http://127.0.0.1:4666 — same run engine as the CLI, with live progress over
+server-sent events, per-profile allowance meters and a Stop button. Loopback only, and
+deliberately unauthenticated because it is never meant to be reachable from another
+machine.
+
+Steam login stays in the terminal (`npm start -- login`); the UI uses the cached refresh
+token and never asks for a password. The CLI remains fully usable on its own — the UI is
+an extra front end, not a replacement.
