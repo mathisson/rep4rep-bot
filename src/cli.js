@@ -250,21 +250,6 @@ program
     });
 
 program
-    .command('ui')
-    .description('Serve the browser UI on localhost')
-    .option('-p, --port <n>', 'port to listen on', v => parseInt(v, 10), 4666)
-    .action(async o => {
-        try {
-            const { serve } = await import('./server.js');
-            await serve(o.port);
-            ok(`UI on ${c.bold(`http://127.0.0.1:${o.port}`)}`);
-            note('Loopback only. Ctrl-C to stop.');
-        } catch (err) {
-            fail(err.code === 'EADDRINUSE' ? `Port ${o.port} is already in use.` : err.message);
-        }
-    });
-
-program
     .command('run')
     .description('Work through comment tasks, re-fetching from rep4rep as each batch is finished')
     .option('-n, --count <n>', 'total comments to post this run', v => parseInt(v, 10), DEFAULT_LIMIT)

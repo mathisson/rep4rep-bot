@@ -184,17 +184,21 @@ still applies; you just lose the early warning.
   `steamcommunity`. It is unmaintained upstream and cannot be resolved without dropping
   that library.
 
-## Browser UI
+## Desktop app
 
 ```bash
-npm run ui
+npm run app
 ```
 
-Serves http://127.0.0.1:4666 — same run engine as the CLI, with live progress over
-server-sent events, per-profile allowance meters and a Stop button. Loopback only, and
-deliberately unauthenticated because it is never meant to be reachable from another
-machine.
+An Electron window: profile cards with live allowance rings that drain as the day is spent,
+run controls, a countdown while waiting out a cooldown, and an activity feed showing each
+batch and comment as it goes out.
 
-Steam login stays in the terminal (`npm start -- login`); the UI uses the cached refresh
-token and never asks for a password. The CLI remains fully usable on its own — the UI is
-an extra front end, not a replacement.
+The main process is Node, so it drives the same `runTasks` engine as the CLI rather than a
+second copy of the logic. The renderer is sandboxed — `contextIsolation` on,
+`nodeIntegration` off — and reaches the main process through exactly four calls exposed in
+`electron/preload.cjs`.
+
+Steam login stays in the terminal (`npm start -- login`); the app uses the cached refresh
+token and never handles a password. The CLI remains fully usable on its own — the app is an
+extra front end, not a replacement.
