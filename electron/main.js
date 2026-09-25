@@ -184,7 +184,9 @@ ipcMain.handle('saveToken', async (_e, token) => {
 
 ipcMain.handle('steamLogin', async (_e, account) => {
     try {
-        const session = await steamLogin({ account, interactive: true, ask: askWindow });
+        // fresh: this is the "sign in" button, so always ask -- never silently
+        // reuse a cached session and ignore what the user typed.
+        const session = await steamLogin({ account, interactive: true, ask: askWindow, fresh: true });
         const name = session.accountName;
         session.logOff();
         return { ok: true, accountName: name, steamId: session.steamId64 };

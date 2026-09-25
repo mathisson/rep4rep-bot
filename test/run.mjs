@@ -12,6 +12,7 @@ const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'rep4rep-test-'));
 
 const suites = [
     { file: 'runner.test.mjs', env: {} },
+    { file: 'steam.test.mjs', env: {} },
     { file: 'quota.test.mjs', env: { HOME: sandbox, USERPROFILE: sandbox } },
 ];
 
