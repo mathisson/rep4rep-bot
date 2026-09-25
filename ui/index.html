@@ -652,7 +652,8 @@ $('steamGo').onclick = async () => {
   }
   selected = null;          // re-default the selection to include the new account
   closeSetup();
-  refresh();
+  await refresh();
+  line('ok', 'Signed in as ' + esc(r.accountName || user));
 };
 
 $('codeGo').onclick = () => {

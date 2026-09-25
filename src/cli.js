@@ -109,11 +109,10 @@ program
     .option('-a, --account <name>', 'Steam account name')
     .action(async o => {
         try {
-            const session = await steamLogin({ account: o.account, interactive: true });
+            // fresh: `login` means sign in, so prompt even when a session is cached.
+            const session = await steamLogin({ account: o.account, interactive: true, fresh: true });
             ok(`Logged in as ${c.bold(session.accountName)} (${session.steamId64})`);
-            note(session.savedToken
-                ? `Refresh token cached in ${SESSIONS_PATH}`
-                : 'Reused the existing cached token.');
+            note(`Refresh token cached in ${SESSIONS_PATH}`);
             session.logOff();
         } catch (err) {
             fail(err.message);

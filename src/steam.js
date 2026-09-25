@@ -20,12 +20,31 @@ const terminalAsk = async ({ type, message, initial }) => {
  * `interactive: true`, prompts for credentials, and caches only the refresh
  * token Steam hands back -- the password is never written to disk.
  */
-export async function steamLogin({ account, interactive = false, ask = terminalAsk } = {}) {
+/**
+ * Decide which cached session to reuse, if any.
+ *
+ * `fresh` means the caller wants a real sign-in -- adding an account, or the
+ * `login` command. Without it, a lone cached session gets adopted whenever no
+ * account is named, which silently signs the wrong account in and ignores the
+ * credentials the caller is about to supply.
+ */
+export function pickLogOn(sessions, { account, fresh = false } = {}) {
+    const names = Object.keys(sessions);
+
+    if (fresh) return { accountName: account || null, refreshToken: null };
+
+    const accountName = account || (names.length === 1 ? names[0] : null);
+    return {
+        accountName,
+        refreshToken: accountName ? sessions[accountName]?.refreshToken ?? null : null,
+    };
+}
+
+export async function steamLogin({ account, interactive = false, ask = terminalAsk, fresh = false } = {}) {
     const sessions = readSessions();
     const names = Object.keys(sessions);
 
-    let accountName = account || (names.length === 1 ? names[0] : null);
-    let refreshToken = accountName ? sessions[accountName]?.refreshToken : null;
+    let { accountName, refreshToken } = pickLogOn(sessions, { account, fresh });
     let logOnOptions;
 
     if (refreshToken) {
@@ -89,7 +108,7 @@ export async function steamLogin({ account, interactive = false, ask = terminalA
             LOGIN_TIMEOUT_MS
         );
 
-        client.on('error', finish(err => reject(translateSteamError(err))));
+        client.on('error', finish(err => reject(translateSteamError(err, Boolean(refreshToken)))));
         client.on('webSession', finish(() => resolve()));
     });
 
@@ -148,13 +167,15 @@ export function postProfileComment(community, targetSteamId64, message) {
     });
 }
 
-function translateSteamError(err) {
+function translateSteamError(err, usedCachedToken = false) {
     const result = err?.eresult;
     const map = {
-        [SteamUser.EResult.InvalidPassword]:
-            'Steam rejected the credentials. If you used a cached token it has expired -- run: npm start -- login',
-        [SteamUser.EResult.AccessDenied]:
-            'Steam denied access. The cached refresh token is no longer valid -- run: npm start -- login',
+        [SteamUser.EResult.InvalidPassword]: usedCachedToken
+            ? 'The saved sign-in has expired. Sign in again.'
+            : 'Steam rejected that username or password.',
+        [SteamUser.EResult.AccessDenied]: usedCachedToken
+            ? 'The saved sign-in is no longer valid. Sign in again.'
+            : 'Steam denied access for that account.',
         [SteamUser.EResult.RateLimitExceeded]:
             'Steam is rate-limiting logins from this IP. Wait a while before retrying.',
         [SteamUser.EResult.AccountLoginDeniedNeedTwoFactor]:
