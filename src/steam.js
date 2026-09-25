@@ -47,8 +47,13 @@ export async function steamLogin({ account, interactive = false } = {}) {
         logOnOptions = { accountName, password: answers.password };
     }
 
-    const client = new SteamUser({ autoRelogin: false, renewRefreshTokens: true });
+    // autoRelogin matters for --wait runs, which idle for hours between comments.
+    const client = new SteamUser({ autoRelogin: true, renewRefreshTokens: true });
     const community = new SteamCommunity();
+
+    // Steam re-issues a web session after every reconnect. These cookies must be
+    // handed to steamcommunity each time, not just on the first login.
+    client.on('webSession', (_sessionID, cookies) => community.setCookies(cookies));
 
     let issuedToken = null;
     client.on('refreshToken', token => { issuedToken = token; });
@@ -85,10 +90,7 @@ export async function steamLogin({ account, interactive = false } = {}) {
         );
 
         client.on('error', finish(err => reject(translateSteamError(err))));
-        client.on('webSession', finish((_sessionID, cookies) => {
-            community.setCookies(cookies);
-            resolve();
-        }));
+        client.on('webSession', finish(() => resolve()));
     });
 
     client.logOn(logOnOptions);
