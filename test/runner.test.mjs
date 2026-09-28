@@ -72,7 +72,6 @@ const base = overrides => ({
     ui: silentUi(),
     countdown: async () => {},
     sleep: async () => {},
-    randBetween: () => 0,
     count: 10,
     batchSize: 3,
     limit: 10,

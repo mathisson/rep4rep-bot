@@ -9,8 +9,9 @@ import {
 } from '../src/config.js';
 import { Rep4Rep } from '../src/rep4rep.js';
 import { steamLogin, postProfileComment } from '../src/steam.js';
-import { runAccounts, Cancelled } from '../src/accounts.js';
-import { getUsage, recordComment, setCooldown, clearCooldown, allAccounts } from '../src/quota.js';
+import { runAccounts } from '../src/accounts.js';
+import { Cancelled } from '../src/runner.js';
+import { getUsage, allAccounts } from '../src/quota.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -93,7 +94,6 @@ async function startRun(opts) {
             login: name => steamLogin({ account: name }),
             post: (session, target, text) => postProfileComment(session.community, target, text),
             r4r: new Rep4Rep(getApiToken()),
-            quota: { getUsage, recordComment, setCooldown, clearCooldown },
             ui: {
                 say: m => log('plain', m),
                 ok: m => log('ok', m),
@@ -123,10 +123,8 @@ async function startRun(opts) {
                 send({ type: 'countdown', until: null });
             },
             sleep,
-            randBetween: (a, b) => a + Math.random() * (b - a),
             count: opts.count,
             batchSize: opts.batch,
-            limit: opts.limit,
             limitFor: steamId => limitFor(readSettings(), steamId),
             minDelay: opts.min,
             maxDelay: opts.max,

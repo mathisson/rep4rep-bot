@@ -8,15 +8,15 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 // over a running copy dies with EPERM on d3dcompiler_47.dll. Close it first.
 if (process.platform === 'win32') {
     try {
-        execFileSync('tasklist', ['/FI', 'IMAGENAME eq Rep4Rep.exe', '/NH'], { encoding: 'utf8' })
-            .includes('Rep4Rep.exe') || (() => { throw new Error('not running'); })();
-
-        console.log('Closing the running Rep4Rep app first...');
-        execFileSync('taskkill', ['/IM', 'Rep4Rep.exe', '/F'], { stdio: 'ignore' });
-        // Give Windows a moment to release the file handles.
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        const tasks = execFileSync('tasklist', ['/FI', 'IMAGENAME eq Rep4Rep.exe', '/NH'], { encoding: 'utf8' });
+        if (tasks.includes('Rep4Rep.exe')) {
+            console.log('Closing the running Rep4Rep app first...');
+            execFileSync('taskkill', ['/IM', 'Rep4Rep.exe', '/F'], { stdio: 'ignore' });
+            // Give Windows a moment to release the file handles.
+            await new Promise(resolve => setTimeout(resolve, 1500));
+        }
     } catch {
-        // Not running, or taskkill unavailable -- nothing to close.
+        // tasklist/taskkill unavailable -- nothing we can do, and nothing to close.
     }
 }
 

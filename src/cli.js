@@ -8,7 +8,7 @@ import { steamLogin, postProfileComment } from './steam.js';
 import { countdown, formatDuration, formatClock } from './countdown.js';
 import { runAccounts } from './accounts.js';
 import {
-    getUsage, recordComment, setCooldown, clearCooldown, resetQuota,
+    getUsage, resetQuota,
     allAccounts, DEFAULT_LIMIT, QUOTA_PATH,
 } from './quota.js';
 
@@ -33,7 +33,6 @@ const bad = m => say(c.red(' fail ') + m);
 const note = m => say(c.dim('       ' + m));
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const randBetween = (a, b) => a + Math.random() * (b - a);
 
 /** rep4rep hands out tasks a few at a time; this is how many we take per fetch. */
 const DEFAULT_BATCH = 3;
@@ -350,15 +349,12 @@ program
                 login: name => steamLogin({ account: name }),
                 post: (session, target, text) => postProfileComment(session.community, target, text),
                 r4r,
-                quota: { getUsage, recordComment, setCooldown, clearCooldown },
                 ui: runnerUi,
                 countdown,
                 sleep,
-                randBetween,
                 count,
                 batchSize,
-                limit,
-                limitFor: steamId => (o.limit ? limit : limitFor(readSettings(), steamId)),
+                limitFor: o.limit ? () => limit : steamId => limitFor(readSettings(), steamId),
                 minDelay,
                 maxDelay,
                 wait: o.wait,

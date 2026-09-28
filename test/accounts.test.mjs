@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { runAccounts, Cancelled } from '../src/accounts.js';
+import { runAccounts } from '../src/accounts.js';
+import { Cancelled } from '../src/runner.js';
 
 let passed = 0;
 const tests = [];
@@ -69,8 +70,7 @@ const base = o => ({
     ui: silentUi(),
     countdown: async () => {},
     sleep: async () => {},
-    randBetween: () => 0,
-    count: 3, batchSize: 3, limit: 10, minDelay: 0, maxDelay: 0,
+    count: 3, batchSize: 3, limitFor: () => 10, minDelay: 0, maxDelay: 0,
     switchDelayMs: 0,
     ...o,
 });

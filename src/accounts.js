@@ -1,10 +1,7 @@
 import { runTasks, Cancelled } from './runner.js';
+import { getUsage, recordComment, setCooldown, clearCooldown } from './quota.js';
 
-// Re-exported so front ends import the cancel signal from one place.
-export { Cancelled };
-
-/** Gap between accounts, so Steam does not see back-to-back logins. */
-export const SWITCH_DELAY_MS = 5000;
+const LEDGER = { getUsage, recordComment, setCooldown, clearCooldown };
 
 /**
  * Work through several Steam accounts in turn, running tasks for each.
@@ -21,21 +18,19 @@ export async function runAccounts({
     login,           // async (name) => session { community, steamId64, accountName, logOff }
     post,            // async (session, targetSteamId64, text) => void
     r4r,
-    quota,
+    quota = LEDGER,
     ui,              // runTasks' ui, plus account({ name, profile })
     countdown,
     sleep,
-    randBetween,
     count,
     batchSize,
-    limit,
-    limitFor,        // optional (steamId) => number, for per-account allowances
+    limitFor,        // (steamId) => the 24h allowance for that account
     minDelay,
     maxDelay,
     wait = false,
     tracking = true,
     onRefusal,
-    switchDelayMs = SWITCH_DELAY_MS,
+    switchDelayMs = 5000,
 }) {
     if (!accounts.length) throw new Error('No Steam accounts are signed in.');
 
@@ -68,10 +63,9 @@ export async function runAccounts({
                     ui,
                     countdown,
                     sleep,
-                    randBetween,
                     count,
                     batchSize,
-                    limit: limitFor ? limitFor(session.steamId64) : limit,
+                    limit: limitFor(session.steamId64),
                     minDelay,
                     maxDelay,
                     wait,

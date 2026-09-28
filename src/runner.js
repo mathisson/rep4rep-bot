@@ -17,6 +17,8 @@ export class Cancelled extends Error {
  */
 export const MAX_CONSECUTIVE_FAILURES = 5;
 
+const randBetween = (a, b) => a + Math.random() * (b - a);
+
 /** Stops --wait spinning forever if Steam keeps refusing. */
 export const MAX_WAITS = 24;
 /** How many times to re-poll when rep4rep is still serving tasks we just did. */
@@ -42,7 +44,6 @@ export async function runTasks({
     ui,             // { say, ok, bad, note, describeTask, dim, yellow }
     countdown,      // async (untilMs, label) => void
     sleep,          // async (ms) => void
-    randBetween,
     now = Date.now,
     count,
     batchSize,

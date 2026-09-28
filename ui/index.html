@@ -830,10 +830,7 @@ async function loadSettings() {
   const s = await window.api.getSettings();
   for (const k of RUN_FIELDS) if (s[k] !== undefined) $(k).value = s[k];
   for (const k of RUN_TOGGLES) $(k).checked = Boolean(s[k]);
-  runLimit = s.limit ?? 10;
 }
-
-let runLimit = 10;
 
 /** Saved as you type, so nothing has to be re-entered next launch. */
 function wireSettingsPersistence() {
@@ -1016,7 +1013,7 @@ $('go').onclick = async () => {
   setRunning(true);
   const r = await window.api.run({
     accounts: [...selected],
-    count: +$('count').value, batch: +$('batch').value, limit: runLimit,
+    count: +$('count').value, batch: +$('batch').value,
     min: +$('min').value, max: +$('max').value,
     wait: $('wait').checked, ignoreQuota: $('ignoreQuota').checked,
   });
