@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import dotenv from 'dotenv';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -10,10 +9,17 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 // a stray `git add .`, and so the CLI works from any working directory.
 export const CONFIG_DIR = path.join(os.homedir(), '.rep4rep-cli');
 
-// The repo .env wins when running from source. A packaged .exe has no repo, so
-// it falls back to the config dir -- the same place sessions and quota live.
-dotenv.config({ path: path.join(projectRoot, '.env'), quiet: true });
-dotenv.config({ path: path.join(CONFIG_DIR, '.env'), quiet: true });
+// The repo .env wins when running from source -- loadEnvFile leaves variables
+// that are already set alone. A packaged .exe has no repo, so it falls back to
+// the config dir, the same place sessions and quota live. Either file may be
+// absent, which loadEnvFile reports by throwing.
+for (const envFile of [path.join(projectRoot, '.env'), path.join(CONFIG_DIR, '.env')]) {
+    try {
+        process.loadEnvFile(envFile);
+    } catch {
+        // No such file -- nothing to load from it.
+    }
+}
 const SESSIONS_FILE = path.join(CONFIG_DIR, 'sessions.json');
 
 function ensureConfigDir() {
@@ -37,7 +43,7 @@ export function writeSessions(sessions) {
 export const STEAM_ERROR_LOG = path.join(CONFIG_DIR, 'steam-errors.log');
 const SETTINGS_FILE = path.join(CONFIG_DIR, 'settings.json');
 
-export const DEFAULT_SETTINGS = {
+const DEFAULT_SETTINGS = {
     count: 10,
     batch: 3,
     limit: 10,
@@ -102,7 +108,7 @@ export function writeSettings(patch) {
  * these are not interchangeable, and wiping the ledger in particular removes
  * the only thing keeping a run under Steam's own limit.
  */
-export const STORAGE_ITEMS = [
+const STORAGE_ITEMS = [
     {
         key: 'settings',
         file: SETTINGS_FILE,

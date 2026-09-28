@@ -1,6 +1,5 @@
 import SteamUser from 'steam-user';
 import SteamCommunity from 'steamcommunity';
-import SteamID from 'steamid';
 import prompts from 'prompts';
 
 import { readSessions, writeSessions } from './config.js';
@@ -31,20 +30,19 @@ const terminalAsk = async ({ type, message, initial }) => {
 export function pickLogOn(sessions, { account, fresh = false } = {}) {
     const names = Object.keys(sessions);
 
-    if (fresh) return { accountName: account || null, refreshToken: null };
+    if (fresh) return { accountName: account || null, refreshToken: null, names };
 
     const accountName = account || (names.length === 1 ? names[0] : null);
     return {
         accountName,
         refreshToken: accountName ? sessions[accountName]?.refreshToken ?? null : null,
+        names,
     };
 }
 
 export async function steamLogin({ account, interactive = false, ask = terminalAsk, fresh = false } = {}) {
     const sessions = readSessions();
-    const names = Object.keys(sessions);
-
-    let { accountName, refreshToken } = pickLogOn(sessions, { account, fresh });
+    let { accountName, refreshToken, names } = pickLogOn(sessions, { account, fresh });
     let logOnOptions;
 
     if (refreshToken) {
@@ -160,7 +158,7 @@ export function isRateLimit(err) {
 /** Post a profile comment. Resolves with the Steam comment id when available. */
 export function postProfileComment(community, targetSteamId64, message) {
     return new Promise((resolve, reject) => {
-        community.postUserComment(new SteamID(String(targetSteamId64)), message, (err, commentId) => {
+        community.postUserComment(String(targetSteamId64), message, (err, commentId) => {
             if (err) return reject(new Error(err.message || String(err)));
             resolve(commentId);
         });

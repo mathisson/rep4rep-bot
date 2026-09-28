@@ -20,10 +20,10 @@ export const MAX_CONSECUTIVE_FAILURES = 5;
 const randBetween = (a, b) => a + Math.random() * (b - a);
 
 /** Stops --wait spinning forever if Steam keeps refusing. */
-export const MAX_WAITS = 24;
+const MAX_WAITS = 24;
 /** How many times to re-poll when rep4rep is still serving tasks we just did. */
-export const MAX_STALE_REFETCHES = 3;
-export const STALE_REFETCH_WAIT_MS = 30_000;
+const MAX_STALE_REFETCHES = 3;
+const STALE_REFETCH_WAIT_MS = 30_000;
 
 /**
  * Work through comment tasks until `count` are posted or something stops us.
@@ -44,7 +44,6 @@ export async function runTasks({
     ui,             // { say, ok, bad, note, describeTask, dim, yellow }
     countdown,      // async (untilMs, label) => void
     sleep,          // async (ms) => void
-    now = Date.now,
     count,
     batchSize,
     limit,
@@ -72,7 +71,7 @@ export async function runTasks({
             const u = quota.getUsage(steamId64, limit);
             const blockedUntil = u.cooldownUntil || (u.remaining === 0 ? u.resetAt : null);
 
-            if (blockedUntil && blockedUntil > now()) {
+            if (blockedUntil && blockedUntil > Date.now()) {
                 const why = u.cooldownUntil ? 'Steam cooldown' : `allowance spent (${u.used}/${limit})`;
                 if (!wait || waits >= MAX_WAITS) {
                     ui.blocked(why, blockedUntil, wait);
@@ -143,7 +142,7 @@ export async function runTasks({
 
             if (isRateLimit(err)) {
                 const u = tracking ? quota.getUsage(steamId64, limit) : { resetAt: null };
-                const until = u.resetAt && u.resetAt > now() ? u.resetAt : now() + HOUR_MS;
+                const until = u.resetAt && u.resetAt > Date.now() ? u.resetAt : Date.now() + HOUR_MS;
                 if (tracking) quota.setCooldown(steamId64, until);
 
                 ui.bad(`${label} Steam is throttling: ${err.message}`);
