@@ -350,6 +350,43 @@
   .item button:hover:not(:disabled) { background: rgba(240,128,108,.14); color: var(--bad); border-color: rgba(240,128,108,.4); }
 
   .about { font-size: 11.5px; color: var(--ink-faint); line-height: 1.7; margin-top: 8px; }
+  .about.bad { color: var(--bad); }
+  .about.ok { color: var(--ok); }
+
+  .where input {
+    flex: 1; min-width: 0; padding: 8px 11px;
+    background: rgba(0,0,0,.28); color: #fff;
+    border: 1px solid var(--edge); border-radius: 8px; font: inherit; font-size: 12.5px;
+    user-select: text;
+  }
+  .where input::placeholder { color: var(--ink-faint); }
+  .where input:focus { outline: none; border-color: #fff; }
+
+  .lim {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; margin-bottom: 8px; border-radius: var(--radius);
+    background: rgba(255,255,255,.06); border: 1px solid var(--edge-soft);
+  }
+  .lim .nm { flex: 1; min-width: 0; font-weight: 650; color: #fff; }
+  .lim .nm small { display: block; font-weight: 400; color: var(--ink-faint); font-size: 11.5px; }
+  .lim input {
+    width: 74px; flex: none; padding: 7px 10px; text-align: center;
+    background: rgba(0,0,0,.28); color: #fff; border: 1px solid var(--edge);
+    border-radius: 8px; font: inherit; font-weight: 600; font-variant-numeric: var(--tab);
+    user-select: text; -moz-appearance: textfield;
+  }
+  .lim input::-webkit-outer-spin-button, .lim input::-webkit-inner-spin-button {
+    -webkit-appearance: none; margin: 0;
+  }
+  .lim input:focus { outline: none; border-color: #fff; }
+
+  .err-row {
+    display: flex; gap: 12px; align-items: baseline;
+    padding: 9px 14px; margin-bottom: 6px; border-radius: 8px;
+    background: rgba(0,0,0,.18); border: 1px solid var(--edge-soft);
+  }
+  .err-row b { flex: none; color: var(--warn); font-variant-numeric: var(--tab); min-width: 26px; }
+  .err-row span { flex: 1; font-size: 12px; color: var(--ink-dim); user-select: text; }
 
   /* ---------- first-run / add account ---------- */
 
@@ -408,6 +445,22 @@
       <code id="cfgDir">—</code>
       <button id="openDir">Open folder</button>
     </div>
+
+    <h3>Link a Steam profile</h3>
+    <div class="where">
+      <input type="text" id="addProfileIn" placeholder="Profile URL, SteamID64 or custom id"
+             autocomplete="off" spellcheck="false">
+      <button id="addProfileGo">Link</button>
+    </div>
+    <div class="about" id="addProfileMsg">Tells rep4rep the profile is yours. Sign in to it separately to post from it.</div>
+
+    <h3>Daily limit per account</h3>
+    <div id="limits"></div>
+    <div class="about">Steam allows roughly 10 profile comments per account per day. Lower one if an
+      account starts getting throttled sooner than the others.</div>
+
+    <h3>Unrecognised refusals</h3>
+    <div id="errorLog"></div>
 
     <h3>Stored data</h3>
     <div id="storage"></div>
@@ -811,7 +864,66 @@ async function drawStorage() {
   ).join('');
 }
 
-$('gear').onclick = async () => { $('settings').classList.add('on'); await drawStorage(); };
+async function drawLimits() {
+  const [s, state] = await Promise.all([window.api.getSettings(), window.api.state()]);
+  const rows = state.profiles.filter(p => p.accountName);
+
+  if (!rows.length) {
+    $('limits').innerHTML = '<div class="about">No signed-in accounts yet.</div>';
+    return;
+  }
+
+  $('limits').innerHTML = rows.map(p =>
+    '<div class="lim"><div class="nm">' + esc(p.personaName)
+    + '<small>' + esc(p.accountName) + '</small></div>'
+    + '<input type="number" min="1" max="100" data-limit="' + esc(p.steamId) + '" value="'
+    + (s.limits?.[p.steamId] ?? s.limit ?? 10) + '"></div>'
+  ).join('');
+}
+
+$('limits').onchange = async e => {
+  const steamId = e.target.dataset?.limit;
+  if (!steamId) return;
+  const s = await window.api.getSettings();
+  const limits = { ...(s.limits || {}) };
+  const v = parseInt(e.target.value, 10);
+  // Matching the shared default means no override at all.
+  if (!Number.isFinite(v) || v <= 0 || v === s.limit) delete limits[steamId];
+  else limits[steamId] = v;
+  await window.api.setSettings({ limits });
+};
+
+async function drawErrorLog() {
+  const rows = await window.api.errorLog();
+  $('errorLog').innerHTML = rows.length
+    ? rows.map(r => '<div class="err-row"><b>' + r.count + '&times;</b><span>' + esc(r.message) + '</span></div>').join('')
+    : '<div class="about">Nothing recorded. Refusals Steam sends that are not recognised as '
+      + 'throttling land here — a message that repeats means a pattern is missing.</div>';
+}
+
+$('addProfileGo').onclick = async () => {
+  const v = $('addProfileIn').value.trim();
+  const msg = $('addProfileMsg');
+  msg.className = 'about';
+  if (!v) { msg.textContent = 'Paste a profile URL or id first.'; return; }
+
+  $('addProfileGo').disabled = true;
+  const r = await window.api.addProfile(v);
+  $('addProfileGo').disabled = false;
+
+  if (r.error) { msg.className = 'about bad'; msg.textContent = r.error; return; }
+  msg.className = 'about ok';
+  msg.textContent = r.message;
+  $('addProfileIn').value = '';
+  await Promise.all([drawLimits(), refresh()]);
+};
+
+$('addProfileIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('addProfileGo').click(); });
+
+$('gear').onclick = async () => {
+  $('settings').classList.add('on');
+  await Promise.all([drawStorage(), drawLimits(), drawErrorLog()]);
+};
 $('settingsClose').onclick = () => { $('settings').classList.remove('on'); refresh(); };
 $('openDir').onclick = () => window.api.openConfigDir();
 
@@ -822,7 +934,8 @@ $('storage').onclick = async e => {
   if (r.error) return alert(r.error);
   if (r.cancelled) return;
   await drawStorage();
-  if (key === 'settings') await loadSettings();
+  if (key === 'settings') { await loadSettings(); await drawLimits(); }
+  if (key === 'errors') await drawErrorLog();
 };
 
 /* ---------- state ---------- */

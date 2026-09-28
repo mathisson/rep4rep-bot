@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import {
     getApiToken, saveApiToken, hasApiToken, readSessions, writeSessions, logSteamError,
     readSettings, writeSettings, listStorage, removeStorage, CONFIG_DIR,
+    readErrorLog, limitFor,
 } from '../src/config.js';
 import { Rep4Rep } from '../src/rep4rep.js';
 import { steamLogin, postProfileComment } from '../src/steam.js';
@@ -107,6 +108,7 @@ async function startRun(opts) {
             count: opts.count,
             batchSize: opts.batch,
             limit: opts.limit,
+            limitFor: steamId => limitFor(readSettings(), steamId),
             minDelay: opts.min,
             maxDelay: opts.max,
             wait: opts.wait,
@@ -159,6 +161,17 @@ ipcMain.handle('removeAccount', (_e, name) => {
     delete sessions[name];
     writeSessions(sessions);
     return { ok: true };
+});
+
+ipcMain.handle('errorLog', () => readErrorLog());
+
+ipcMain.handle('addProfile', async (_e, steamProfile) => {
+    try {
+        const res = await new Rep4Rep(getApiToken()).addSteamProfile(String(steamProfile || '').trim());
+        return { ok: true, message: res.success || 'Added.' };
+    } catch (err) {
+        return { error: err.message };
+    }
 });
 
 ipcMain.handle('getSettings', () => readSettings());

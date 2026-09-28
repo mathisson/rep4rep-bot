@@ -45,7 +45,40 @@ export const DEFAULT_SETTINGS = {
     max: 45,
     wait: false,
     ignoreQuota: false,
+    limits: {},   // per-SteamID override of `limit`, for accounts Steam treats differently
 };
+
+/** The 24h allowance for one account: its own override, else the shared default. */
+export function limitFor(settings, steamId) {
+    const own = Number(settings?.limits?.[String(steamId)]);
+    return Number.isFinite(own) && own > 0 ? own : (Number(settings?.limit) || DEFAULT_SETTINGS.limit);
+}
+
+/**
+ * Refusals grouped by message, most frequent first. A message that repeats is
+ * the signal that a throttle pattern is missing.
+ */
+export function readErrorLog(max = 50) {
+    let raw;
+    try {
+        raw = fs.readFileSync(STEAM_ERROR_LOG, 'utf8').trim();
+    } catch {
+        return [];
+    }
+    if (!raw) return [];
+
+    const tally = new Map();
+    for (const row of raw.split('\n')) {
+        const [when, , ...rest] = row.split('\t');
+        const message = rest.join('\t');
+        if (!message) continue;
+        const entry = tally.get(message) || { message, count: 0, last: when };
+        entry.count++;
+        entry.last = when;
+        tally.set(message, entry);
+    }
+    return [...tally.values()].sort((a, b) => b.count - a.count).slice(0, max);
+}
 
 export function readSettings() {
     try {

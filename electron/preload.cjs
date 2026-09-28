@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('api', {
     getSettings: () => ipcRenderer.invoke('getSettings'),
     setSettings: patch => ipcRenderer.invoke('setSettings', patch),
     listStorage: () => ipcRenderer.invoke('listStorage'),
+    errorLog: () => ipcRenderer.invoke('errorLog'),
+    addProfile: p => ipcRenderer.invoke('addProfile', p),
     removeStorage: key => ipcRenderer.invoke('removeStorage', key),
     openConfigDir: () => ipcRenderer.invoke('openConfigDir'),
     answer: (id, value) => ipcRenderer.invoke('answer', { id, value }),

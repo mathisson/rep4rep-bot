@@ -2,7 +2,7 @@
 import { Command } from 'commander';
 import prompts from 'prompts';
 
-import { getApiToken, readSessions, writeSessions, SESSIONS_PATH, logSteamError, STEAM_ERROR_LOG } from './config.js';
+import { getApiToken, readSessions, writeSessions, SESSIONS_PATH, logSteamError, STEAM_ERROR_LOG, readSettings, limitFor } from './config.js';
 import { Rep4Rep } from './rep4rep.js';
 import { steamLogin, postProfileComment } from './steam.js';
 import { countdown, formatDuration, formatClock } from './countdown.js';
@@ -358,6 +358,7 @@ program
                 count,
                 batchSize,
                 limit,
+                limitFor: steamId => (o.limit ? limit : limitFor(readSettings(), steamId)),
                 minDelay,
                 maxDelay,
                 wait: o.wait,

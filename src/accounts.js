@@ -29,6 +29,7 @@ export async function runAccounts({
     count,
     batchSize,
     limit,
+    limitFor,        // optional (steamId) => number, for per-account allowances
     minDelay,
     maxDelay,
     wait = false,
@@ -70,7 +71,7 @@ export async function runAccounts({
                     randBetween,
                     count,
                     batchSize,
-                    limit,
+                    limit: limitFor ? limitFor(session.steamId64) : limit,
                     minDelay,
                     maxDelay,
                     wait,

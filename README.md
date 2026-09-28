@@ -136,6 +136,11 @@ log would be an easy mistake to make.
 Run settings -- comments per run, per-fetch size, pauses and the two toggles -- save
 themselves as you change them, so nothing has to be re-entered next launch.
 
+It also links a Steam profile to your rep4rep account (the CLI `add`), sets a per-account
+daily limit for accounts Steam treats differently, and lists the unrecognised refusals
+described below. An account limit matching the shared default is stored as no override at
+all, so changing the default still moves it.
+
 ## When comments are refused
 
 Steam's throttling messages are matched against a short list of patterns. Anything outside
