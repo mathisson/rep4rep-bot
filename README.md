@@ -141,6 +141,26 @@ daily limit for accounts Steam treats differently, and lists the unrecognised re
 described below. An account limit matching the shared default is stored as no override at
 all, so changing the default still moves it.
 
+## Running it daily
+
+The allowance is per day, so the natural pattern is one run a day. Double-click
+**`schedule.cmd`** to set that up as a Windows task — it runs headless, with the app
+closed, using the sign-ins already saved.
+
+```
+schedule.cmd          set it up (09:00 by default)
+schedule.cmd 21:30    move it
+schedule.cmd /status  when it next runs
+schedule.cmd /log     what it did
+schedule.cmd /remove  stop it
+```
+
+Each run appends to `~/.rep4rep-cli/daily.log`. The task runs `run-daily.cmd`, which is
+just the CLI with the confirmation prompt skipped.
+
+When a run finishes in the desktop app and its window is not in front, it posts a desktop
+notification with the tally. Clicking it brings the window back.
+
 ## When comments are refused
 
 Steam's throttling messages are matched against a short list of patterns. Anything outside

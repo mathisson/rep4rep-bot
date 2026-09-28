@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, dialog, Notification } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -52,6 +52,25 @@ const cancellableSleep = isCancelled => ms => new Promise((resolve, reject) => {
     }, 250);
     const timer = setTimeout(() => { clearInterval(tick); resolve(); }, ms);
 });
+
+/**
+ * A full run takes minutes, and longer while waiting out a cooldown, so it is
+ * usually finishing while you are looking at something else. Nothing is shown
+ * if the window is already in front -- the tally is right there.
+ */
+function notifyFinished({ done, failed, accounts }) {
+    if (!Notification.isSupported() || win?.isFocused()) return;
+
+    const body = [
+        `${done} comment${done === 1 ? '' : 's'} posted`,
+        failed ? `${failed} failed` : null,
+        accounts > 1 ? `across ${accounts} accounts` : null,
+    ].filter(Boolean).join(' · ');
+
+    const note = new Notification({ title: 'Rep4Rep — run finished', body });
+    note.on('click', () => { win?.show(); win?.focus(); });
+    note.show();
+}
 
 /* ------------------------------------------------------------------ */
 /* the run, shared with the CLI                                        */
@@ -117,6 +136,7 @@ async function startRun(opts) {
         });
 
         send({ type: 'result', ...total });
+        notifyFinished(total);
     } catch (err) {
         if (err instanceof Cancelled) log('note', 'Stopped.');
         else log('bad', err.message);
@@ -289,6 +309,7 @@ function createWindow() {
     });
 }
 
+app.setAppUserModelId('com.rep4rep.app');
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
