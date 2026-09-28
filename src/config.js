@@ -35,6 +35,102 @@ export function writeSessions(sessions) {
 }
 
 export const STEAM_ERROR_LOG = path.join(CONFIG_DIR, 'steam-errors.log');
+const SETTINGS_FILE = path.join(CONFIG_DIR, 'settings.json');
+
+export const DEFAULT_SETTINGS = {
+    count: 10,
+    batch: 3,
+    limit: 10,
+    min: 20,
+    max: 45,
+    wait: false,
+    ignoreQuota: false,
+};
+
+export function readSettings() {
+    try {
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')) };
+    } catch {
+        return { ...DEFAULT_SETTINGS };
+    }
+}
+
+export function writeSettings(patch) {
+    const merged = { ...readSettings(), ...patch };
+    ensureConfigDir();
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(merged, null, 2), { mode: 0o600 });
+    return merged;
+}
+
+/**
+ * Everything the app keeps on disk.
+ *
+ * Deliberately itemised rather than offered as one "clear everything" button:
+ * these are not interchangeable, and wiping the ledger in particular removes
+ * the only thing keeping a run under Steam's own limit.
+ */
+export const STORAGE_ITEMS = [
+    {
+        key: 'settings',
+        file: SETTINGS_FILE,
+        label: 'Run settings',
+        detail: 'Comments per run, pauses, toggles.',
+        consequence: 'Returns everything to its default.',
+        risk: 'low',
+    },
+    {
+        key: 'errors',
+        file: STEAM_ERROR_LOG,
+        label: 'Refusal log',
+        detail: 'Steam messages not recognised as throttling.',
+        consequence: 'Only diagnostics. Nothing breaks.',
+        risk: 'low',
+    },
+    {
+        key: 'quota',
+        file: path.join(CONFIG_DIR, 'quota.json'),
+        label: '24-hour ledger',
+        detail: 'How many comments each account has posted today.',
+        consequence: 'Clearing this removes the only thing holding a run under Steam’s limit.',
+        risk: 'high',
+    },
+    {
+        key: 'sessions',
+        file: path.join(CONFIG_DIR, 'sessions.json'),
+        label: 'Steam sign-ins',
+        detail: 'The tokens Steam issued. Never your password.',
+        consequence: 'Signs every account out. You will sign in again.',
+        risk: 'high',
+    },
+    {
+        key: 'token',
+        file: path.join(CONFIG_DIR, '.env'),
+        label: 'rep4rep API token',
+        detail: 'Connects the app to your rep4rep account.',
+        consequence: 'Disconnects rep4rep. The app returns to first-run setup.',
+        risk: 'high',
+    },
+];
+
+export function listStorage() {
+    return STORAGE_ITEMS.map(item => {
+        let bytes = null;
+        try { bytes = fs.statSync(item.file).size; } catch { /* absent */ }
+        return { ...item, bytes, exists: bytes !== null };
+    });
+}
+
+export function removeStorage(key) {
+    const item = STORAGE_ITEMS.find(i => i.key === key);
+    if (!item) throw new Error(`Unknown item: ${key}`);
+    try {
+        fs.rmSync(item.file);
+    } catch (err) {
+        if (err.code !== 'ENOENT') throw err;
+    }
+    if (key === 'token') delete process.env.REP4REP_TOKEN;
+    return true;
+}
 
 /**
  * Record a Steam refusal that isRateLimit did not recognise.

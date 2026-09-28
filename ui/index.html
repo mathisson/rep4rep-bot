@@ -294,6 +294,63 @@
   #empty .big { font-size: 15px; color: var(--ink-dim); margin-bottom: 6px; }
   #empty .small { font-size: 12.5px; color: var(--ink-faint); max-width: 340px; line-height: 1.6; }
 
+  /* ---------- settings ---------- */
+
+  #gear {
+    width: auto; margin: 0; padding: 5px 7px; line-height: 0;
+    background: transparent; border-radius: 7px; color: var(--ink-dim);
+    -webkit-app-region: no-drag;
+  }
+  #gear:hover { background: rgba(255,255,255,.14); color: #fff; }
+  #gear svg { display: block; }
+
+  #settings {
+    display: none; position: fixed; inset: 44px 0 0; z-index: 25;
+    background: var(--bg); overflow-y: auto; padding: 28px 24px 32px;
+  }
+  #settings.on { display: block; }
+  #settings .box { max-width: 560px; margin: 0 auto; }
+  #settings .top { display: flex; align-items: baseline; margin-bottom: 22px; }
+  #settings h2 { font-size: 19px; font-weight: 700; color: #fff; letter-spacing: -.01em; }
+  #settings .top button { width: auto; margin: 0 0 0 auto; padding: 6px 14px; font-size: 12.5px; }
+  #settings h3 {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 24px 0 10px;
+  }
+  #settings h3:first-of-type { margin-top: 0; }
+
+  .where {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border-radius: var(--radius);
+    background: rgba(0,0,0,.2); border: 1px solid var(--edge-soft);
+  }
+  .where code {
+    flex: 1; min-width: 0; font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 11.5px; color: var(--ink-dim); user-select: text;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .where button { width: auto; margin: 0; padding: 6px 13px; font-size: 12px; flex: none; }
+
+  .item {
+    display: flex; align-items: flex-start; gap: 13px;
+    padding: 13px 14px; margin-bottom: 8px; border-radius: var(--radius);
+    background: rgba(255,255,255,.06); border: 1px solid var(--edge-soft);
+  }
+  .item.gone { opacity: .5; }
+  .item .body { flex: 1; min-width: 0; }
+  .item .name { font-weight: 650; color: #fff; display: flex; align-items: baseline; gap: 8px; }
+  .item .size { font-size: 11px; color: var(--ink-faint); font-variant-numeric: var(--tab); font-weight: 400; }
+  .item .what { font-size: 12px; color: var(--ink-dim); margin-top: 2px; }
+  .item .cons { font-size: 11.5px; color: var(--ink-faint); margin-top: 4px; }
+  .item.high .cons { color: var(--warn); }
+  .item button {
+    width: auto; margin: 0; flex: none; padding: 6px 12px; font-size: 12px;
+    background: transparent; color: var(--ink-dim); border: 1px solid var(--edge);
+  }
+  .item button:hover:not(:disabled) { background: rgba(240,128,108,.14); color: var(--bad); border-color: rgba(240,128,108,.4); }
+
+  .about { font-size: 11.5px; color: var(--ink-faint); line-height: 1.7; margin-top: 8px; }
+
   /* ---------- first-run / add account ---------- */
 
   #setup {
@@ -330,6 +387,37 @@
   <div class="spacer"></div>
   <span class="who" id="who">—</span>
   <span class="pts" id="pts" style="display:none"></span>
+  <button id="gear" title="Settings">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+</div>
+
+<div id="settings">
+  <div class="box">
+    <div class="top">
+      <h2>Settings</h2>
+      <button id="settingsClose">Done</button>
+    </div>
+
+    <h3>Where everything is kept</h3>
+    <div class="where">
+      <code id="cfgDir">—</code>
+      <button id="openDir">Open folder</button>
+    </div>
+
+    <h3>Stored data</h3>
+    <div id="storage"></div>
+
+    <h3>About</h3>
+    <div class="about">
+      Rep4Rep <span id="ver">v2.1.0</span> · run settings are saved automatically as you change them.<br>
+      Your Steam password is never stored — only the sign-in token Steam issues.
+    </div>
+  </div>
 </div>
 
 <div id="setup">
@@ -680,6 +768,63 @@ function handleAsk(ev) {
   showStep('stepCode');
 }
 
+/* ---------- settings ---------- */
+
+const RUN_FIELDS = ['count', 'batch', 'min', 'max'];
+const RUN_TOGGLES = ['wait', 'ignoreQuota'];
+
+async function loadSettings() {
+  const s = await window.api.getSettings();
+  for (const k of RUN_FIELDS) if (s[k] !== undefined) $(k).value = s[k];
+  for (const k of RUN_TOGGLES) $(k).checked = Boolean(s[k]);
+  runLimit = s.limit ?? 10;
+}
+
+let runLimit = 10;
+
+/** Saved as you type, so nothing has to be re-entered next launch. */
+function wireSettingsPersistence() {
+  for (const k of RUN_FIELDS) {
+    $(k).addEventListener('change', () => window.api.setSettings({ [k]: +$(k).value }));
+  }
+  for (const k of RUN_TOGGLES) {
+    $(k).addEventListener('change', () => window.api.setSettings({ [k]: $(k).checked }));
+  }
+}
+
+const humanSize = n =>
+  n === null ? 'not created' : n < 1024 ? n + ' B' : (n / 1024).toFixed(1) + ' KB';
+
+async function drawStorage() {
+  const { dir, items } = await window.api.listStorage();
+  $('cfgDir').textContent = dir;
+
+  $('storage').innerHTML = items.map(i =>
+    '<div class="item ' + i.risk + (i.exists ? '' : ' gone') + '">'
+    + '<div class="body">'
+    + '<div class="name">' + esc(i.label) + '<span class="size">' + humanSize(i.bytes) + '</span></div>'
+    + '<div class="what">' + esc(i.detail) + '</div>'
+    + '<div class="cons">' + esc(i.consequence) + '</div>'
+    + '</div>'
+    + '<button data-remove="' + i.key + '"' + (i.exists ? '' : ' disabled') + '>Remove</button>'
+    + '</div>'
+  ).join('');
+}
+
+$('gear').onclick = async () => { $('settings').classList.add('on'); await drawStorage(); };
+$('settingsClose').onclick = () => { $('settings').classList.remove('on'); refresh(); };
+$('openDir').onclick = () => window.api.openConfigDir();
+
+$('storage').onclick = async e => {
+  const key = e.target.dataset?.remove;
+  if (!key) return;
+  const r = await window.api.removeStorage(key);
+  if (r.error) return alert(r.error);
+  if (r.cancelled) return;
+  await drawStorage();
+  if (key === 'settings') await loadSettings();
+};
+
 /* ---------- state ---------- */
 
 async function refresh() {
@@ -758,7 +903,7 @@ $('go').onclick = async () => {
   setRunning(true);
   const r = await window.api.run({
     accounts: [...selected],
-    count: +$('count').value, batch: +$('batch').value, limit: 10,
+    count: +$('count').value, batch: +$('batch').value, limit: runLimit,
     min: +$('min').value, max: +$('max').value,
     wait: $('wait').checked, ignoreQuota: $('ignoreQuota').checked,
   });
@@ -767,7 +912,8 @@ $('go').onclick = async () => {
 
 $('halt').onclick = () => window.api.stop();
 
-refresh();
+wireSettingsPersistence();
+loadSettings().then(refresh);
 setInterval(() => { if (!running && !addingAccount) refresh(); }, 20000);
 </script>
 </body>

@@ -125,6 +125,17 @@ through leaves the remaining tasks untouched and available on the next run.
 profile, comments disabled) it is dropped, never retried, and the run fetches another
 target to make up for it.
 
+## Settings
+
+The gear in the title bar opens a page showing where the app keeps its data, with a
+button to open that folder, and each stored file listed separately with what removing it
+actually costs. There is deliberately no single "clear everything" button: the ledger is
+the only thing holding a run under Steam’s own limit, and wiping it alongside a harmless
+log would be an easy mistake to make.
+
+Run settings -- comments per run, per-fetch size, pauses and the two toggles -- save
+themselves as you change them, so nothing has to be re-entered next launch.
+
 ## When comments are refused
 
 Steam's throttling messages are matched against a short list of patterns. Anything outside

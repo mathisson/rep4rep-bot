@@ -9,6 +9,11 @@ contextBridge.exposeInMainWorld('api', {
     saveToken: token => ipcRenderer.invoke('saveToken', token),
     steamLogin: account => ipcRenderer.invoke('steamLogin', account),
     removeAccount: name => ipcRenderer.invoke('removeAccount', name),
+    getSettings: () => ipcRenderer.invoke('getSettings'),
+    setSettings: patch => ipcRenderer.invoke('setSettings', patch),
+    listStorage: () => ipcRenderer.invoke('listStorage'),
+    removeStorage: key => ipcRenderer.invoke('removeStorage', key),
+    openConfigDir: () => ipcRenderer.invoke('openConfigDir'),
     answer: (id, value) => ipcRenderer.invoke('answer', { id, value }),
     onEvent: handler => ipcRenderer.on('event', (_e, payload) => handler(payload)),
 });

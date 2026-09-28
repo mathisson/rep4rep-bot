@@ -1,8 +1,11 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { getApiToken, saveApiToken, hasApiToken, readSessions, writeSessions, logSteamError } from '../src/config.js';
+import {
+    getApiToken, saveApiToken, hasApiToken, readSessions, writeSessions, logSteamError,
+    readSettings, writeSettings, listStorage, removeStorage, CONFIG_DIR,
+} from '../src/config.js';
 import { Rep4Rep } from '../src/rep4rep.js';
 import { steamLogin, postProfileComment } from '../src/steam.js';
 import { runAccounts, Cancelled } from '../src/accounts.js';
@@ -156,6 +159,42 @@ ipcMain.handle('removeAccount', (_e, name) => {
     delete sessions[name];
     writeSessions(sessions);
     return { ok: true };
+});
+
+ipcMain.handle('getSettings', () => readSettings());
+ipcMain.handle('setSettings', (_e, patch) => writeSettings(patch));
+
+ipcMain.handle('listStorage', () => ({ dir: CONFIG_DIR, items: listStorage() }));
+
+ipcMain.handle('openConfigDir', async () => {
+    const err = await shell.openPath(CONFIG_DIR);
+    return err ? { error: err } : { ok: true };
+});
+
+ipcMain.handle('removeStorage', async (_e, key) => {
+    if (current) return { error: 'Stop the run first.' };
+
+    const item = listStorage().find(i => i.key === key);
+    if (!item) return { error: 'Unknown item.' };
+
+    // Native confirmation: the high-risk items are not recoverable.
+    const { response } = await dialog.showMessageBox(win, {
+        type: item.risk === 'high' ? 'warning' : 'question',
+        buttons: ['Cancel', 'Remove'],
+        defaultId: 0,
+        cancelId: 0,
+        title: 'Remove ' + item.label,
+        message: 'Remove ' + item.label.toLowerCase() + '?',
+        detail: item.consequence,
+    });
+    if (response !== 1) return { cancelled: true };
+
+    try {
+        removeStorage(key);
+        return { ok: true };
+    } catch (err) {
+        return { error: err.message };
+    }
 });
 
 ipcMain.handle('state', async () => {
