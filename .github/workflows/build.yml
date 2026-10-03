@@ -1,18 +1,19 @@
 name: build
 
-# Every push to main is tested and packaged, so a break is visible immediately.
-# A release is only cut when a version tag is pushed -- a 150 MB release per
-# commit would bury the real ones and eat storage for nothing.
+# Every push to main is tested and packaged. The version in package.json is
+# what decides whether that build also becomes a release: if no release exists
+# for it yet, one is cut. So bumping the number in package.json is the whole
+# ritual -- no tagging by hand, and ordinary commits do not spam the releases
+# page with 160 MB of duplicates.
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write   # needed to create the release; nothing else
+  contents: write   # to create the tag and release; nothing else
 
 jobs:
   build:
@@ -28,20 +29,6 @@ jobs:
           node-version: 22        # package.json engines requires >=22
           cache: npm
 
-      # A tag that disagrees with package.json would ship an app whose About
-      # box contradicts its own release. Fail loudly instead.
-      - name: Check tag matches package.json
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: pwsh
-        run: |
-          $pkg = (Get-Content package.json | ConvertFrom-Json).version
-          $tag = $env:GITHUB_REF_NAME -replace '^v', ''
-          if ($pkg -ne $tag) {
-            Write-Error "Tag $env:GITHUB_REF_NAME does not match package.json version $pkg. Use 'npm version' to keep them in step."
-            exit 1
-          }
-          Write-Output "version $pkg matches tag $env:GITHUB_REF_NAME"
-
       - name: Install
         run: npm ci
 
@@ -55,24 +42,32 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path dist/Rep4Rep-win32-x64/* -DestinationPath Rep4Rep-win32-x64.zip
 
-      # On a branch push: keep the build downloadable from the run itself.
       - name: Upload build
-        if: startsWith(github.ref, 'refs/heads/')
         uses: actions/upload-artifact@v4
         with:
           name: Rep4Rep-win32-x64
           path: Rep4Rep-win32-x64.zip
           retention-days: 14
 
-      # On a tag: publish it as a release. gh is preinstalled on the runner,
-      # so this needs no third-party action.
-      - name: Release
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Only on main, and only when package.json names a version that has not
+      # been released yet. A tag pushed by GITHUB_TOKEN does not start another
+      # workflow run, so this cannot loop.
+      - name: Release new versions
+        if: github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          gh release create "$env:GITHUB_REF_NAME"
-          Rep4Rep-win32-x64.zip
-          --title "$env:GITHUB_REF_NAME"
-          --generate-notes
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $tag = "v$version"
+
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output "$tag is already released - bump the version in package.json to cut a new one."
+            exit 0
+          }
+
+          Write-Output "Releasing $tag"
+          git tag $tag
+          git push origin $tag
+          gh release create $tag Rep4Rep-win32-x64.zip --title $tag --generate-notes
