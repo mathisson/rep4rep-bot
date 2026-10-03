@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
 import prompts from 'prompts';
 
@@ -45,6 +46,9 @@ function fail(message) {
 /* ------------------------------------------------------------------ */
 /* shared plumbing                                                     */
 /* ------------------------------------------------------------------ */
+
+const { version: VERSION } = JSON.parse(
+    readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 const api = opts => new Rep4Rep(getApiToken(opts.token));
 
@@ -104,7 +108,7 @@ const program = new Command();
 program
     .name('rep4rep')
     .description('Complete Rep4Rep comment tasks from the terminal.')
-    .version('1.2.0')
+    .version(VERSION)
     .option('--token <token>', 'rep4rep API token (overrides REP4REP_TOKEN in .env)');
 
 program

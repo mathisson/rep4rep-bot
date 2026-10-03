@@ -467,7 +467,7 @@
 
     <h3>About</h3>
     <div class="about">
-      Rep4Rep <span id="ver">v2.1.0</span> · run settings are saved automatically as you change them.<br>
+      Rep4Rep <span id="ver"></span> · run settings are saved automatically as you change them.<br>
       Your Steam password is never stored — only the sign-in token Steam issues.
     </div>
   </div>
@@ -941,6 +941,7 @@ async function refresh() {
   const s = await window.api.state();
 
   $('who').textContent = s.user ? s.user.username : (s.error ? 'not connected' : '—');
+  if (s.version) $('ver').textContent = 'v' + s.version;
   if (s.user) { $('pts').style.display = ''; $('pts').textContent = s.user.points + ' pts'; }
 
   drawProfiles(s.profiles);

@@ -1,0 +1,78 @@
+name: build
+
+# Every push to main is tested and packaged, so a break is visible immediately.
+# A release is only cut when a version tag is pushed -- a 150 MB release per
+# commit would bury the real ones and eat storage for nothing.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create the release; nothing else
+
+jobs:
+  build:
+    # Windows, because the packaged icon is a .ico -- setting one from Linux
+    # needs wine. The app is Windows-only anyway.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22        # package.json engines requires >=22
+          cache: npm
+
+      # A tag that disagrees with package.json would ship an app whose About
+      # box contradicts its own release. Fail loudly instead.
+      - name: Check tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $pkg = (Get-Content package.json | ConvertFrom-Json).version
+          $tag = $env:GITHUB_REF_NAME -replace '^v', ''
+          if ($pkg -ne $tag) {
+            Write-Error "Tag $env:GITHUB_REF_NAME does not match package.json version $pkg. Use 'npm version' to keep them in step."
+            exit 1
+          }
+          Write-Output "version $pkg matches tag $env:GITHUB_REF_NAME"
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Package
+        run: npm run build
+
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path dist/Rep4Rep-win32-x64/* -DestinationPath Rep4Rep-win32-x64.zip
+
+      # On a branch push: keep the build downloadable from the run itself.
+      - name: Upload build
+        if: startsWith(github.ref, 'refs/heads/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rep4Rep-win32-x64
+          path: Rep4Rep-win32-x64.zip
+          retention-days: 14
+
+      # On a tag: publish it as a release. gh is preinstalled on the runner,
+      # so this needs no third-party action.
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$env:GITHUB_REF_NAME"
+          Rep4Rep-win32-x64.zip
+          --title "$env:GITHUB_REF_NAME"
+          --generate-notes

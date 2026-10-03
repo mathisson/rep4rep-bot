@@ -238,6 +238,7 @@ ipcMain.handle('state', async () => {
     const out = {
         accounts: Object.entries(sessions).map(([name, s]) => ({ name, steamId: s.steamId })),
         needs: { token: !hasApiToken(), steam: Object.keys(sessions).length === 0 },
+        version: app.getVersion(),
         running: Boolean(current),
         quota: allAccounts(),
         profiles: [],

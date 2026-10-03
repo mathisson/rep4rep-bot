@@ -184,6 +184,22 @@ npm start -- errors
 The first is a genuine refusal. A message that repeats and is not one of those is the
 signal that a throttle pattern is missing from the list in `src/steam.js`.
 
+## Releases
+
+Every push to `main` is tested and packaged by GitHub Actions, and the build is attached to
+the run for 14 days. A release is cut only when a version tag is pushed — a 160 MB release
+per commit would bury the real ones.
+
+`package.json` is the single source of truth for the version: the CLI's `--version`, the
+app's About line and the release all read from it. `npm version` keeps them in step by
+editing it, committing and tagging in one go:
+
+```bash
+npm version patch && git push --follow-tags
+```
+
+CI refuses a tag that disagrees with `package.json`, so the two cannot drift.
+
 ## Tests
 
 ```bash
