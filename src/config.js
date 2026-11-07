@@ -52,6 +52,7 @@ const DEFAULT_SETTINGS = {
     wait: false,
     ignoreQuota: false,
     limits: {},   // per-SteamID override of `limit`, for accounts Steam treats differently
+    theme: 'dark', // 'dark' (matches rep4rep.com) or 'bright' (the original blue)
 };
 
 /** The 24h allowance for one account: its own override, else the shared default. */

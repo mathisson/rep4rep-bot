@@ -195,7 +195,11 @@ ipcMain.handle('addProfile', async (_e, steamProfile) => {
 });
 
 ipcMain.handle('getSettings', () => readSettings());
-ipcMain.handle('setSettings', (_e, patch) => writeSettings(patch));
+ipcMain.handle('setSettings', (_e, patch) => {
+    const merged = writeSettings(patch);
+    if (patch && 'theme' in patch) applyWindowTheme(merged.theme);
+    return merged;
+});
 
 ipcMain.handle('listStorage', () => ({ dir: CONFIG_DIR, items: listStorage() }));
 
@@ -282,16 +286,32 @@ ipcMain.handle('stop', () => {
 /* window                                                              */
 /* ------------------------------------------------------------------ */
 
+// The native min/max/close strip is drawn by the OS, not the page, so it has
+// to be recoloured here to match the title bar of each theme in ui/index.html.
+const WINDOW_THEMES = {
+    dark:   { background: '#131413', overlay: { color: '#131413', symbolColor: '#edefee', height: 44 } },
+    bright: { background: '#5b72c3', overlay: { color: '#4f66b4', symbolColor: '#ffffff', height: 44 } },
+};
+const windowTheme = name => WINDOW_THEMES[name] || WINDOW_THEMES.dark;
+
+function applyWindowTheme(name) {
+    if (!win) return;
+    const t = windowTheme(name);
+    win.setBackgroundColor(t.background);
+    try { win.setTitleBarOverlay(t.overlay); } catch { /* not supported on this platform */ }
+}
+
 function createWindow() {
+    const theme = windowTheme(readSettings().theme);
     win = new BrowserWindow({
         width: 1120,
         height: 780,
         minWidth: 940,
         minHeight: 620,
-        backgroundColor: '#5b72c3',
+        backgroundColor: theme.background,
         show: false,
         titleBarStyle: 'hidden',
-        titleBarOverlay: { color: '#4f66b4', symbolColor: '#ffffff', height: 44 },
+        titleBarOverlay: theme.overlay,
         icon: path.join(here, '..', 'build', 'icon.ico'),
         webPreferences: {
             preload: path.join(here, 'preload.cjs'),
