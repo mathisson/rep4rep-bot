@@ -151,9 +151,11 @@ async function startRun(opts) {
 
 ipcMain.handle('saveToken', async (_e, token) => {
     try {
-        saveApiToken(token);
-        // Prove it works before letting the user past the setup step.
-        const user = await new Rep4Rep(getApiToken()).getUser();
+        // Prove it works before saving it or letting the user past the setup step.
+        const clean = String(token || '').trim();
+        if (!clean) throw new Error('Empty API key.');
+        const user = await new Rep4Rep(clean).getUser();
+        saveApiToken(clean);
         return { ok: true, username: user.username, points: user.points };
     } catch (err) {
         return { error: err.message };

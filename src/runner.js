@@ -180,7 +180,7 @@ export async function runTasks({
         // 4. Tell rep4rep. A failure here leaves the comment posted but unpaid, so it is
         //    reported separately rather than silently counted as done.
         try {
-            await r4r.completeTask(task.taskId, task.requiredCommentId, profile.id);
+            await r4r.completeTask(task.taskId, task.requiredCommentId, profile.id, task.ticket);
             ui.ok(`${label} posted and marked complete`);
             done++;
         } catch (err) {

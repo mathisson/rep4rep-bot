@@ -1,7 +1,7 @@
 # rep4rep-cli
 
 Completes [Rep4Rep](https://rep4rep.com) comment tasks from the terminal, using the
-[public API](https://rep4rep.github.io/rep4rep-api-doc/) and the Steam client protocol.
+[public API](https://rep4rep.com/api) (`https://api.rep4rep.com/v1`) and the Steam client protocol.
 
 This replaces the manual loop on the *Gain Points* tab — view tasks, copy, open profile,
 paste, go back, verify — with one command.
@@ -10,10 +10,10 @@ paste, go back, verify — with one command.
 
 | Step | Where |
 | --- | --- |
-| Find your linked profile and its internal rep4rep id | `GET /pub-api/user/steamprofiles` |
-| Fetch available tasks (target profile + required comment text) | `GET /pub-api/tasks` |
+| Find your linked profiles (by SteamID64) | `GET /v1/steam-profiles` |
+| Fetch available tasks (target profile + required comment text) | `GET /v1/steam-profiles/{steamId}/tasks` |
 | Post the comment on the target's Steam profile | Steam client session |
-| Mark the task complete so rep4rep verifies it | `POST /pub-api/tasks/complete` |
+| Submit the task (with its ticket) so rep4rep verifies it | `POST /v1/tasks` |
 
 The rep4rep API cannot post to Steam for you, so the CLI logs into Steam itself with
 `steam-user` and posts through `steamcommunity`. Your password is never written to disk —
@@ -26,7 +26,7 @@ only the refresh token Steam issues after a successful login, in
 npm install
 ```
 
-Copy the env template and paste your API token from <https://rep4rep.com/user/settings/>:
+Copy the env template and paste your API key (rep4rep → Settings → API key):
 
 ```bash
 cp .env.example .env
