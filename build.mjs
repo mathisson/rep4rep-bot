@@ -32,6 +32,7 @@ const ignore = [
     /^\/\.vscode/,
     /^\/build\.(cmd|mjs)$/,
     /^\/README\.md$/,
+    /^\/docs($|\/)/,   // README screenshots
 ];
 
 let out;
