@@ -535,6 +535,33 @@
   .swatch.bright i:nth-child(1) { width: 46px; background: #ffffff; }
   .swatch.bright i:nth-child(2) { width: 28px; background: #45599f; }
   .swatch.bright i:nth-child(3) { width: 14px; background: #8ce8a3; }
+  /* ---------- schedule, tray, updates ---------- */
+
+  .opts {
+    padding: 4px 14px; border-radius: var(--radius);
+    background: var(--surface-2); border: 1px solid var(--edge-soft);
+  }
+  .opts .toggle { padding: 9px 0; }
+  .opts .toggle + .toggle, .opts .sched + .toggle { border-top: 1px solid var(--edge-soft); }
+  .opts .toggle small { display: block; color: var(--ink-faint); font-size: 11.5px; }
+  .sched { display: flex; align-items: center; gap: 10px; }
+  .sched .toggle { flex: 1; }
+  .sched input[type="time"] {
+    width: 104px; flex: none; padding: 6px 9px;
+    background: var(--well-strong); color: var(--ink-strong); border: 1px solid var(--edge);
+    border-radius: 8px; font: inherit; font-weight: 600; font-variant-numeric: var(--tab);
+    color-scheme: dark; user-select: text;
+  }
+  .sched input[type="time"]:focus { outline: none; border-color: var(--focus); }
+  .sched input[type="time"]:disabled { opacity: .45; }
+
+  #bar .upd {
+    -webkit-app-region: no-drag; text-decoration: none;
+    font-size: 12px; font-weight: 650; color: var(--accent-ink); background: var(--accent);
+    border: var(--accent-border); padding: 3px 11px; border-radius: 999px;
+  }
+  #bar .upd:hover { filter: var(--accent-hover); }
+
   .err-row b { flex: none; color: var(--warn); font-variant-numeric: var(--tab); min-width: 26px; }
   .err-row span { flex: 1; font-size: 12px; color: var(--ink-dim); user-select: text; }
 
@@ -572,6 +599,7 @@
 <div id="bar">
   <img src="logo.png" alt="Rep4Rep">
   <div class="spacer"></div>
+  <a class="upd" id="upd" target="_blank" style="display:none" title="Opens the release page in your browser"></a>
   <span class="who" id="who">—</span>
   <span class="pts" id="pts" style="display:none"></span>
   <button id="gear" title="Settings">
@@ -600,6 +628,26 @@
         <span class="swatch bright"><i></i><i></i><i></i></span>
         <span>Bright<small>The original blue</small></span>
       </button>
+    </div>
+
+    <h3>Daily run</h3>
+    <div class="opts">
+      <div class="sched">
+        <label class="toggle"><input type="checkbox" id="scheduleEnabled">
+          <span>Run every day at<small>With the run settings, across every signed-in account.</small></span></label>
+        <input type="time" id="scheduleTime" value="09:00">
+      </div>
+      <label class="toggle"><input type="checkbox" id="closeToTray">
+        <span>Keep running in the tray<small>Closing the window hides it instead. Quit from the tray icon.</small></span></label>
+      <label class="toggle"><input type="checkbox" id="startWithWindows">
+        <span>Start with Windows<small id="startNote">Opens quietly in the tray when you sign in.</small></span></label>
+    </div>
+    <div class="about" id="scheduleNext"></div>
+
+    <h3>Updates</h3>
+    <div class="opts">
+      <label class="toggle"><input type="checkbox" id="checkUpdates">
+        <span>Check for new versions<small>Asks GitHub on start. Nothing is downloaded — a new version shows a link in the title bar.</small></span></label>
     </div>
 
     <h3>Where everything is kept</h3>
@@ -1038,6 +1086,58 @@ function wireSettingsPersistence() {
   }
 }
 
+/* ---------- schedule, tray, updates ---------- */
+
+const APP_TOGGLES = ['scheduleEnabled', 'closeToTray', 'startWithWindows', 'checkUpdates'];
+
+async function drawSchedule() {
+  const [s, info] = await Promise.all([window.api.getSettings(), window.api.schedule()]);
+  for (const k of APP_TOGGLES) $(k).checked = Boolean(s[k]);
+  $('scheduleTime').value = s.scheduleTime || '09:00';
+  $('scheduleTime').disabled = !s.scheduleEnabled;
+
+  $('startWithWindows').disabled = !info.packaged;
+  $('startNote').textContent = info.packaged
+    ? 'Opens quietly in the tray when you sign in.'
+    : 'Only available in the packaged app, not when run from source.';
+
+  const next = $('scheduleNext');
+  if (!s.scheduleEnabled) next.textContent = '';
+  else if (!s.closeToTray && !s.startWithWindows) {
+    next.className = 'about bad';
+    next.textContent = 'Next run ' + info.next + ' — only if Rep4Rep is still open then. Keep it in the tray so closing the window does not stop it.';
+  } else {
+    next.className = 'about ok';
+    next.textContent = 'Next run ' + info.next + '.';
+  }
+}
+
+for (const k of APP_TOGGLES) {
+  $(k).addEventListener('change', async () => {
+    const patch = { [k]: $(k).checked };
+    // A schedule only works while the app is alive, so the switches that
+    // depend on that bring the tray along with them.
+    if ((k === 'scheduleEnabled' || k === 'startWithWindows') && $(k).checked) patch.closeToTray = true;
+    if (k === 'scheduleEnabled' && $(k).checked) patch.scheduleTime = $('scheduleTime').value;
+    await window.api.setSettings(patch);
+    drawSchedule();
+  });
+}
+
+$('scheduleTime').addEventListener('change', async () => {
+  if (!$('scheduleTime').value) return;
+  await window.api.setSettings({ scheduleTime: $('scheduleTime').value });
+  drawSchedule();
+});
+
+function showUpdate(u) {
+  const el = $('upd');
+  if (!u) { el.style.display = 'none'; return; }
+  el.href = u.url;
+  el.textContent = 'v' + u.version + ' available · Download';
+  el.style.display = '';
+}
+
 const humanSize = n =>
   n === null ? 'not created' : n < 1024 ? n + ' B' : (n / 1024).toFixed(1) + ' KB';
 
@@ -1115,7 +1215,7 @@ $('addProfileIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('a
 
 $('gear').onclick = async () => {
   $('settings').classList.add('on');
-  await Promise.all([drawStorage(), drawLimits(), drawErrorLog()]);
+  await Promise.all([drawSchedule(), drawStorage(), drawLimits(), drawErrorLog()]);
 };
 $('settingsClose').onclick = () => { $('settings').classList.remove('on'); refresh(); };
 $('openDir').onclick = () => window.api.openConfigDir();
@@ -1138,6 +1238,7 @@ async function refresh() {
 
   $('who').textContent = s.user ? s.user.username : (s.error ? 'not connected' : '—');
   if (s.version) $('ver').textContent = 'v' + s.version;
+  showUpdate(s.update);
   if (s.user) { $('pts').style.display = ''; $('pts').textContent = s.user.points + ' pts'; }
 
   drawProfiles(s.profiles);
@@ -1165,6 +1266,11 @@ async function refresh() {
 window.api.onEvent(ev => {
   if (ev.type === 'ask') {
     handleAsk(ev);
+  } else if (ev.type === 'scheduled') {
+    clearFeed();
+    line('note', esc(ev.reason));
+  } else if (ev.type === 'update') {
+    showUpdate(ev);
   } else if (ev.type === 'account') {
     if (ev.persona) {
       const el = document.createElement('div');
@@ -1221,7 +1327,9 @@ $('halt').onclick = () => window.api.stop();
 
 wireSettingsPersistence();
 loadSettings().then(refresh);
-setInterval(() => { if (!running && !addingAccount) refresh(); }, 20000);
+// Not while hidden in the tray -- nobody is looking, and it would poll rep4rep all day.
+setInterval(() => { if (!running && !addingAccount && !document.hidden) refresh(); }, 20000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !running) refresh(); });
 </script>
 </body>
 </html>

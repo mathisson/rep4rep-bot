@@ -23,8 +23,11 @@ profile, paste, go back, confirm. This app does that loop for you.
 - **Paces itself.** A random 20–45 second pause between comments, adjustable.
 - **Waits instead of failing.** With *Wait out cooldowns* on, it counts down to the next
   free slot and carries on by itself.
+- **Runs by itself every day.** Pick a time and it starts a run on its own, from the tray,
+  even with the window closed. It can start with Windows too.
 - **Shows everything it does.** The feed lists every batch of targets, every comment
   posted and anything Steam refused.
+- **Tells you when there's a new version.** A link appears in the title bar.
 
 ## Getting started
 
@@ -44,6 +47,10 @@ Steam hands back. Everything the app keeps stays on your PC, in `%USERPROFILE%\.
 The gear in the top-right corner opens settings:
 
 - **Appearance** — *Dark*, matching rep4rep.com (the default), or *Bright*, the original blue.
+- **Daily run** — a time to run every day, across every signed-in account. *Keep running in
+  the tray* makes the close button hide the window instead of quitting, and *Start with
+  Windows* opens the app in the tray when you sign in. The tray icon also has *Run now* and *Quit*.
+- **Updates** — check GitHub for a newer release on start. Nothing is downloaded automatically.
 - **Link a Steam profile** to your rep4rep account.
 - **Daily limit per account** — lower it for an account Steam throttles sooner.
 - **Stored data** — each file the app keeps, what it's for and what removing it does.

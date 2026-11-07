@@ -14,6 +14,7 @@ const suites = [
     { file: 'runner.test.mjs', env: {} },
     { file: 'steam.test.mjs', env: {} },
     { file: 'accounts.test.mjs', env: {} },
+    { file: 'schedule.test.mjs', env: {} },
     { file: 'quota.test.mjs', env: { HOME: sandbox, USERPROFILE: sandbox } },
 ];
 

@@ -53,6 +53,14 @@ const DEFAULT_SETTINGS = {
     ignoreQuota: false,
     limits: {},   // per-SteamID override of `limit`, for accounts Steam treats differently
     theme: 'dark', // 'dark' (matches rep4rep.com) or 'bright' (the original blue)
+
+    // Desktop app only -- see src/schedule.js.
+    scheduleEnabled: false,
+    scheduleTime: '09:00',
+    scheduleLastDay: null,
+    closeToTray: false,      // closing the window keeps the app running in the tray
+    startWithWindows: false, // launched hidden, in the tray, at sign-in
+    checkUpdates: true,      // ask GitHub for a newer release on start
 };
 
 /** The 24h allowance for one account: its own override, else the shared default. */

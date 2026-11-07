@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, dialog, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, dialog, Notification, Tray, Menu, nativeImage } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,10 +12,20 @@ import { steamLogin, postProfileComment } from '../src/steam.js';
 import { runAccounts } from '../src/accounts.js';
 import { Cancelled } from '../src/runner.js';
 import { getUsage, allAccounts } from '../src/quota.js';
+import { isDue, nextRun, dayKey, lastDayWhenSet, parseTime } from '../src/schedule.js';
+import { checkForUpdate } from '../src/update.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const ICON = path.join(here, '..', 'build', 'icon.ico');
+
+// Started by Windows at sign-in: live in the tray, open no window.
+const launchedHidden = process.argv.includes('--hidden');
 
 let win = null;
+let tray = null;
+let quitting = false;
+let toldAboutTray = false;
+let update = null;  // { version, url } once GitHub reports a newer release
 let current = null; // { cancel } while a run is in flight
 
 const send = payload => win?.webContents.send('event', { ...payload, at: Date.now() });
@@ -68,8 +78,13 @@ function notifyFinished({ done, failed, accounts }) {
         accounts > 1 ? `across ${accounts} accounts` : null,
     ].filter(Boolean).join(' · ');
 
-    const note = new Notification({ title: 'Rep4Rep — run finished', body });
-    note.on('click', () => { win?.show(); win?.focus(); });
+    notify('Rep4Rep — run finished', body);
+}
+
+function notify(title, body) {
+    if (!Notification.isSupported()) return;
+    const note = new Notification({ title, body, icon: ICON });
+    note.on('click', showWindow);
     note.show();
 }
 
@@ -81,6 +96,7 @@ async function startRun(opts) {
     let cancelled = false;
     current = { cancel: () => { cancelled = true; } };
     send({ type: 'status', running: true });
+    refreshTray();
 
     const sleep = cancellableSleep(() => cancelled);
 
@@ -142,7 +158,114 @@ async function startRun(opts) {
     } finally {
         current = null;
         send({ type: 'status', running: false });
+        refreshTray();
     }
+}
+
+/* ------------------------------------------------------------------ */
+/* runs nobody clicked Start for: the schedule and the tray            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A run with the saved run settings across every signed-in account -- the
+ * same thing the CLI's daily task does. Returns why it could not start, if so.
+ */
+function runFromSettings(reason) {
+    if (current) return 'A run is already in progress.';
+    if (!hasApiToken()) return 'rep4rep is not connected.';
+    const accounts = Object.keys(readSessions());
+    if (!accounts.length) return 'No Steam account is signed in.';
+
+    const s = readSettings();
+    send({ type: 'scheduled', reason });
+    startRun({
+        accounts,
+        count: s.count, batch: s.batch, min: s.min, max: s.max,
+        wait: s.wait, ignoreQuota: s.ignoreQuota,
+    }).catch(err => log('bad', err.message));
+    return null;
+}
+
+function tickSchedule() {
+    const s = readSettings();
+    if (!isDue(s) || current) return;
+
+    // Marked before starting, so a run that fails is not retried every tick.
+    writeSettings({ scheduleLastDay: dayKey(Date.now()) });
+    const why = runFromSettings(`Scheduled run (${s.scheduleTime})`);
+    if (why) notify('Rep4Rep — scheduled run skipped', why);
+    refreshTray();
+}
+
+const clock = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+function describeNext(s = readSettings()) {
+    const at = nextRun(s);
+    if (at === null) return null;
+    const sameDay = dayKey(at) === dayKey(Date.now());
+    return (sameDay ? 'today ' : 'tomorrow ') + clock(at);
+}
+
+/* ------------------------------------------------------------------ */
+/* tray                                                                */
+/* ------------------------------------------------------------------ */
+
+function showWindow() {
+    if (!win) createWindow();
+    win.show();
+    if (win.isMinimized()) win.restore();
+    win.focus();
+}
+
+function createTray() {
+    tray = new Tray(nativeImage.createFromPath(ICON));
+    tray.on('click', showWindow);
+    refreshTray();
+}
+
+function refreshTray() {
+    if (!tray) return;
+    const next = describeNext();
+    tray.setToolTip(current ? 'Rep4Rep — running' : next ? `Rep4Rep — next run ${next}` : 'Rep4Rep');
+
+    tray.setContextMenu(Menu.buildFromTemplate([
+        { label: 'Open Rep4Rep', click: showWindow },
+        current
+            ? { label: 'Stop run', click: () => current?.cancel() }
+            : { label: 'Run now', click: () => {
+                const why = runFromSettings('Started from the tray');
+                if (why) notify('Rep4Rep', why);
+            } },
+        { type: 'separator' },
+        { label: next ? `Next scheduled run: ${next}` : 'No scheduled run', enabled: false },
+        ...(update ? [{ label: `Download v${update.version}…`, click: () => shell.openExternal(update.url) }] : []),
+        { type: 'separator' },
+        { label: 'Quit', click: () => { quitting = true; app.quit(); } },
+    ]));
+}
+
+/* ------------------------------------------------------------------ */
+/* updates                                                             */
+/* ------------------------------------------------------------------ */
+
+async function lookForUpdate() {
+    if (!readSettings().checkUpdates) return;
+    try {
+        const found = await checkForUpdate(app.getVersion());
+        if (found && found.version !== update?.version) {
+            update = found;
+            send({ type: 'update', ...update });
+            refreshTray();
+        }
+    } catch {
+        // Offline, rate limited, GitHub down: try again on the next check.
+    }
+}
+
+/** Windows' "run at sign-in" entry. Only meaningful for the packaged .exe. */
+function applyLoginItem(on) {
+    if (!app.isPackaged) return;
+    app.setLoginItemSettings({ openAtLogin: Boolean(on), args: ['--hidden'] });
 }
 
 /* ------------------------------------------------------------------ */
@@ -196,10 +319,32 @@ ipcMain.handle('addProfile', async (_e, steamProfile) => {
 
 ipcMain.handle('getSettings', () => readSettings());
 ipcMain.handle('setSettings', (_e, patch) => {
+    patch = { ...(patch || {}) };
+    const before = readSettings();
+
+    if ('scheduleTime' in patch && !parseTime(patch.scheduleTime)) delete patch.scheduleTime;
+    const turnedOn = patch.scheduleEnabled === true && !before.scheduleEnabled;
+    if (turnedOn || ('scheduleTime' in patch && patch.scheduleTime !== before.scheduleTime)) {
+        // Switching it on at 15:00 for 09:00 waits for tomorrow instead of
+        // firing now -- unless today's run already happened, which stays done.
+        const today = dayKey(Date.now());
+        patch.scheduleLastDay = before.scheduleLastDay === today
+            ? today
+            : lastDayWhenSet(patch.scheduleTime ?? before.scheduleTime);
+    }
+
     const merged = writeSettings(patch);
-    if (patch && 'theme' in patch) applyWindowTheme(merged.theme);
+    if ('theme' in patch) applyWindowTheme(merged.theme);
+    if ('startWithWindows' in patch) applyLoginItem(merged.startWithWindows);
+    if (patch.checkUpdates === true) lookForUpdate();
+    refreshTray();
     return merged;
 });
+
+ipcMain.handle('schedule', () => ({
+    next: describeNext(),
+    packaged: app.isPackaged,
+}));
 
 ipcMain.handle('listStorage', () => ({ dir: CONFIG_DIR, items: listStorage() }));
 
@@ -245,6 +390,7 @@ ipcMain.handle('state', async () => {
         accounts: Object.entries(sessions).map(([name, s]) => ({ name, steamId: s.steamId })),
         needs: { token: !hasApiToken(), steam: Object.keys(sessions).length === 0 },
         version: app.getVersion(),
+        update,
         running: Boolean(current),
         quota: allAccounts(),
         profiles: [],
@@ -312,7 +458,7 @@ function createWindow() {
         show: false,
         titleBarStyle: 'hidden',
         titleBarOverlay: theme.overlay,
-        icon: path.join(here, '..', 'build', 'icon.ico'),
+        icon: ICON,
         webPreferences: {
             preload: path.join(here, 'preload.cjs'),
             contextIsolation: true,
@@ -321,7 +467,20 @@ function createWindow() {
     });
 
     win.loadFile(path.join(here, '..', 'ui', 'index.html'));
-    win.once('ready-to-show', () => win.show());
+    win.once('ready-to-show', () => { if (!launchedHidden) win.show(); });
+
+    // With "keep running in the tray" on, the close button only hides the
+    // window, so the schedule keeps working. Quit is in the tray menu.
+    win.on('close', e => {
+        if (quitting || !readSettings().closeToTray) return;
+        e.preventDefault();
+        win.hide();
+        if (!toldAboutTray) {
+            toldAboutTray = true;
+            notify('Rep4Rep is still running', 'It lives in the tray now. Right-click the icon to quit.');
+        }
+    });
+    win.on('closed', () => { win = null; });
 
     // Steam profile links open in the real browser, never inside the app.
     win.webContents.setWindowOpenHandler(({ url }) => {
@@ -331,7 +490,29 @@ function createWindow() {
 }
 
 app.setAppUserModelId('com.rep4rep.app');
-app.whenReady().then(createWindow);
+
+// One copy only: two would both run the schedule. Launching it again (or
+// Windows starting it while it is already open) brings the window forward.
+if (!app.requestSingleInstanceLock()) {
+    app.quit();
+} else {
+    app.on('second-instance', showWindow);
+
+    app.whenReady().then(() => {
+        createWindow();
+        createTray();
+        applyLoginItem(readSettings().startWithWindows);
+
+        tickSchedule();
+        setInterval(tickSchedule, 30_000);
+        setInterval(refreshTray, 60_000); // keeps "today"/"tomorrow" in the menu right
+
+        setTimeout(lookForUpdate, 5_000);
+        setInterval(lookForUpdate, 6 * 3600_000);
+    });
+}
+
+app.on('before-quit', () => { quitting = true; });
 
 app.on('window-all-closed', () => {
     current?.cancel();

@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
     removeAccount: name => ipcRenderer.invoke('removeAccount', name),
     getSettings: () => ipcRenderer.invoke('getSettings'),
     setSettings: patch => ipcRenderer.invoke('setSettings', patch),
+    schedule: () => ipcRenderer.invoke('schedule'),
     listStorage: () => ipcRenderer.invoke('listStorage'),
     errorLog: () => ipcRenderer.invoke('errorLog'),
     addProfile: p => ipcRenderer.invoke('addProfile', p),
